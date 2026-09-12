@@ -83,87 +83,6 @@
   h1 { font-size: 21px; font-weight: 700; margin: 0; }
   h1 .ai { color: var(--safe); font-weight: 500; }
   .sub { color: var(--text-dim); font-size: 11px; margin-top: 4px; letter-spacing: 0.5px; }
-
-  /* Cyber Sentinel HUD Widget */
-  .cyber-sentinel-hud {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    background: rgba(18, 13, 31, 0.85);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(168, 109, 255, 0.25);
-    border-radius: 8px;
-    padding: 8px 16px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
-    position: relative;
-    overflow: hidden;
-  }
-  .cyber-sentinel-hud::after {
-    content: "";
-    position: absolute;
-    top: 0; left: -100%; width: 50%; height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(168,109,255,0.12), transparent);
-    animation: hudScan 6s linear infinite;
-    pointer-events: none;
-  }
-  @keyframes hudScan { 0% { left: -100%; } 100% { left: 200%; } }
-
-  .hud-radar-scanner {
-    width: 36px; height: 36px; border-radius: 50%;
-    border: 1.5px solid rgba(0, 212, 255, 0.55);
-    background: radial-gradient(circle, rgba(0, 212, 255, 0.08) 0%, rgba(10, 7, 21, 0.9) 100%);
-    position: relative; overflow: hidden;
-    box-shadow: 0 0 10px rgba(0, 212, 255, 0.2);
-    flex-shrink: 0;
-  }
-  .radar-ring-inner { position: absolute; inset: 7px; border-radius: 50%; border: 1px dashed rgba(0, 212, 255, 0.35); }
-  .radar-crosshair-x { position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: rgba(0, 212, 255, 0.25); transform: translateY(-50%); }
-  .radar-crosshair-y { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(0, 212, 255, 0.25); transform: translateX(-50%); }
-  .radar-sweep {
-    position: absolute; inset: 0; border-radius: 50%;
-    background: conic-gradient(from 0deg, transparent 0deg, transparent 270deg, rgba(0, 212, 255, 0.65) 360deg);
-    animation: radarSweep 2.8s linear infinite;
-  }
-  @keyframes radarSweep { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-  .radar-blip {
-    position: absolute; width: 4px; height: 4px; border-radius: 50%;
-    background: #FF5C7A; box-shadow: 0 0 6px #FF5C7A; animation: blipGlow 2.8s infinite;
-  }
-  .blip-1 { top: 9px; right: 8px; animation-delay: 0.5s; }
-  .blip-2 { bottom: 8px; left: 9px; background: #7FE3FF; box-shadow: 0 0 6px #7FE3FF; animation-delay: 1.8s; }
-  @keyframes blipGlow { 0%, 100% { opacity: 0; transform: scale(0.6); } 50% { opacity: 1; transform: scale(1.2); } }
-
-  .hud-meta { display: flex; flex-direction: column; gap: 3px; }
-  .hud-top-line { display: flex; align-items: center; gap: 12px; }
-  .hud-status-badge {
-    display: flex; align-items: center; gap: 6px;
-    font-size: 11px; font-weight: 700; letter-spacing: 0.8px;
-    color: #7FE3FF;
-  }
-  .status-indicator-dot {
-    width: 7px; height: 7px; border-radius: 50%; background: #00D4FF;
-    box-shadow: 0 0 8px #00D4FF; animation: dotPulse 2s infinite;
-  }
-  @keyframes dotPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.8); } }
-  .hud-utc-clock { font-size: 10px; color: var(--text-dim); letter-spacing: 0.6px; }
-  .hud-bottom-line { display: flex; align-items: center; gap: 8px; }
-  .hud-telemetry { font-size: 9.5px; color: var(--text-dim); letter-spacing: 0.5px; }
-
-  .packet-waveform { display: flex; align-items: flex-end; gap: 3px; height: 13px; }
-  .packet-waveform .bar {
-    width: 3.5px;
-    background: linear-gradient(180deg, #7FE3FF 0%, #00D4FF 50%, #A86DFF 100%);
-    border-radius: 2px;
-    box-shadow: 0 0 6px rgba(0, 212, 255, 0.4), inset 1px 1px 0 rgba(255,255,255,0.45);
-    animation: waveBounce 1.5s ease-in-out infinite alternate;
-  }
-  .bar.b1 { height: 40%; animation-delay: 0.1s; }
-  .bar.b2 { height: 85%; animation-delay: 0.35s; }
-  .bar.b3 { height: 60%; animation-delay: 0.2s; }
-  .bar.b4 { height: 100%; animation-delay: 0.5s; }
-  .bar.b5 { height: 50%; animation-delay: 0.15s; }
-  @keyframes waveBounce { 0% { height: 25%; background: var(--safe); } 50% { height: 95%; background: #00D4FF; } 100% { height: 45%; background: var(--safe); } }
-
   main { padding: 24px 32px 60px; max-width: 1320px; margin: 0 auto; }
   .scene { }
 
@@ -184,24 +103,6 @@
     content: ""; position: absolute; top:0; left:0; right:0; height: 1px;
     background: linear-gradient(90deg, transparent, rgba(168,109,255,0.35), transparent);
     z-index: 3; pointer-events: none;
-  }
-
-  .soc-security-posture {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    background: rgba(168, 109, 255, 0.08);
-    border: 1px solid rgba(168, 109, 255, 0.22);
-    border-radius: 8px;
-    padding: 7px 14px;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.8px;
-    color: #D3B8FF;
-  }
-  .posture-dot {
-    width: 7px; height: 7px; border-radius: 50%; background: #00D4FF;
-    box-shadow: 0 0 8px #00D4FF;
   }
 
   /* Full-Stack Header Controls & User Identity */
@@ -1234,67 +1135,38 @@
 
 <header>
   <div class="brand">
-    <div>
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#A86DFF" stroke-width="1.6" style="vertical-align:-5px;margin-right:8px;"><path d="M12 2 4 5v6c0 5 3.5 8.5 8 11 4.5-2.5 8-6 8-11V5l-8-3z"/></svg>
-      <h1 style="display:inline;">AEGIS <span class="ai">AI</span></h1>
-      <div class="sub">THREAT INTELLIGENCE &amp; ACTIVE DEFENSE — ENTERPRISE SOC PLATFORM</div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <div style="width: 34px; height: 34px; border-radius: 8px; background: linear-gradient(135deg, rgba(168,109,255,0.25), rgba(0,212,255,0.2)); border: 1px solid rgba(168,109,255,0.45); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 14px rgba(168,109,255,0.25);">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A86DFF" stroke-width="2.2"><path d="M12 2 4 5v6c0 5 3.5 8.5 8 11 4.5-2.5 8-6 8-11V5l-8-3z"/></svg>
+      </div>
+      <div>
+        <h1 style="font-size: 19px; font-weight: 700; margin: 0; letter-spacing: 0.5px;">AEGIS <span class="ai" style="color: var(--cyan);">AI</span></h1>
+        <div class="sub" style="font-size: 10px; margin-top: 2px; color: var(--text-dim); letter-spacing: 0.8px;">THREAT INTELLIGENCE &amp; ACTIVE DEFENSE PLATFORM</div>
+      </div>
     </div>
   </div>
-  <div style="display: flex; align-items: center; gap: 12px;">
-    <!-- WebSocket Live Stream Indicator -->
-    <div class="ws-live-pill ws-connected" id="wsLivePill" title="Socket.IO Real-Time Stream Status">
+
+  <div style="display: flex; align-items: center; gap: 14px;">
+    <!-- WebSocket Real-Time Connection Indicator -->
+    <div class="ws-live-pill ws-connected" id="wsLivePill" title="Real-Time Socket.IO Engine Connected">
       <span class="ws-dot"></span>
-      <span id="wsStatusText">WS: LIVE</span>
+      <span id="wsStatusText">ACTIVE DEFENSE ONLINE</span>
     </div>
 
-    <!-- Persistent SQLite Incident Database Modal Trigger -->
-    <button class="btn-header-fullstack" onclick="openHistoryModal()" title="Search, Filter & Export Persistent SQLite Incident Records">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align:-2px;"><path d="M4 7V4h16v3M9 20h6M12 4v16"/><path d="M4 12h16M4 17h16"/></svg>
-      INCIDENT DB
+    <!-- SQLite Incident Database Explorer Trigger -->
+    <button class="btn-header-fullstack" onclick="openHistoryModal()" title="Search &amp; Export SQLite Incident History">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;"><path d="M4 7V4h16v3M9 20h6M12 4v16"/><path d="M4 12h16M4 17h16"/></svg>
+      INCIDENT ARCHIVE
     </button>
 
-    <!-- RBAC User Profile Badge (Click to open Auth Modal) -->
-    <div class="user-profile-badge" id="userProfileBadge" onclick="openAuthModal()" title="Click to Switch Role (Admin / Analyst / Auditor) or Login">
+    <!-- RBAC User Profile Badge -->
+    <div class="user-profile-badge" id="userProfileBadge" onclick="openAuthModal()" title="Switch Operator Role (Admin / Analyst / Auditor) or Login">
       <div class="user-avatar" id="headerAvatar">AD</div>
       <div class="user-info-text">
         <span class="user-name" id="headerUsername">admin</span>
         <span class="role-tag role-admin" id="headerRole">ADMIN</span>
       </div>
     </div>
-
-    <div class="soc-security-posture" title="Enterprise Defense Posture: Real-Time Active Defense Online">
-      <span class="posture-dot"></span>
-      <span>SOC LEVEL-1 · ACTIVE DEFENSE</span>
-    </div>
-    <div class="cyber-sentinel-hud">
-    <div class="hud-radar-scanner" title="Tactical Defense Radar: Active 360 Sweep">
-      <div class="radar-crosshair-x"></div>
-      <div class="radar-crosshair-y"></div>
-      <div class="radar-sweep"></div>
-      <div class="radar-blip blip-1"></div>
-      <div class="radar-blip blip-2"></div>
-      <div class="radar-ring-inner"></div>
-    </div>
-    <div class="hud-meta">
-      <div class="hud-top-line">
-        <span class="hud-status-badge" id="hudStatusBadge">
-          <span class="status-indicator-dot"></span>
-          <span id="hudStatusText">ACTIVE DEFENSE · ARMED</span>
-        </span>
-        <span class="hud-utc-clock" id="hudClock">--:--:-- UTC</span>
-      </div>
-      <div class="hud-bottom-line">
-        <div class="packet-waveform" title="Live Deep Packet Inspection Rate">
-          <span class="bar b1"></span>
-          <span class="bar b2"></span>
-          <span class="bar b3"></span>
-          <span class="bar b4"></span>
-          <span class="bar b5"></span>
-        </div>
-        <span class="hud-telemetry" id="hudTelemetry">DPI STREAM: 2.8 GB/s · 240 FPS</span>
-      </div>
-    </div>
-  </div>
   </div>
 </header>
 
