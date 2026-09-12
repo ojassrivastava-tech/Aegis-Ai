@@ -133,36 +133,146 @@
     transform: translateY(1px);
   }
 
-  .user-profile-badge {
-    display: inline-flex;
+  /* Futuristic Holographic Cyber Sentinel Reactor Badge */
+  .cyber-reactor-badge {
+    display: flex;
     align-items: center;
-    gap: 8px;
-    background: linear-gradient(180deg, rgba(28, 20, 52, 0.9) 0%, rgba(16, 12, 30, 0.95) 100%);
-    border: 1px solid rgba(168, 109, 255, 0.35);
-    border-top: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 8px;
-    padding: 6px 12px;
-    font-size: 11px;
-    font-weight: 600;
-    color: #EDE9F7;
-    cursor: pointer;
-    transition: all 0.2s ease;
+    gap: 10px;
+    padding: 5px 12px 5px 8px;
+    background: linear-gradient(135deg, rgba(19, 13, 36, 0.9) 0%, rgba(10, 7, 20, 0.95) 100%);
+    border: 1px solid rgba(0, 212, 255, 0.35);
+    border-radius: 9px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    position: relative;
+    overflow: hidden;
+    cursor: default;
+    transition: all 0.3s ease;
   }
-  .user-profile-badge:hover {
-    border-color: #A86DFF;
-    box-shadow: 0 0 12px rgba(168, 109, 255, 0.35);
+  .cyber-reactor-badge::after {
+    content: "";
+    position: absolute;
+    top: 0; left: -100%; width: 60%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.18), transparent);
+    animation: cyberBadgeScan 4s linear infinite;
+    pointer-events: none;
   }
-  .role-tag {
-    font-size: 9.5px;
+  @keyframes cyberBadgeScan {
+    0% { left: -100%; }
+    100% { left: 200%; }
+  }
+  .cyber-reactor-badge:hover {
+    border-color: #00D4FF;
+    box-shadow: 0 0 18px rgba(0, 212, 255, 0.4), inset 0 0 10px rgba(0, 212, 255, 0.15);
+    transform: translateY(-1px);
+  }
+
+  .reactor-core-wrap {
+    width: 28px;
+    height: 28px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .reactor-ring.outer-ring {
+    position: absolute;
+    width: 26px;
+    height: 26px;
+    border: 1.5px dashed rgba(0, 212, 255, 0.85);
+    border-radius: 50%;
+    box-shadow: 0 0 8px rgba(0, 212, 255, 0.35);
+    animation: rotateCw 6s linear infinite;
+  }
+  .reactor-ring.middle-hex {
+    position: absolute;
+    width: 17px;
+    height: 17px;
+    border: 1.2px solid rgba(168, 109, 255, 0.8);
+    border-radius: 3px;
+    animation: rotateCcw 4s linear infinite;
+  }
+  .reactor-center-node {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #FFFFFF 0%, #00D4FF 60%, #5B17B0 100%);
+    box-shadow: 0 0 8px #00D4FF, 0 0 14px rgba(0, 212, 255, 0.7);
+    animation: nodePulse 1.8s ease-in-out infinite alternate;
+    z-index: 2;
+  }
+  .reactor-orbit-particle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    z-index: 3;
+  }
+  .reactor-orbit-particle.p1 {
+    background: #00D4FF;
+    box-shadow: 0 0 6px #00D4FF;
+    animation: orbitParticleOne 2.6s linear infinite;
+  }
+  .reactor-orbit-particle.p2 {
+    background: #FF5C7A;
+    box-shadow: 0 0 6px #FF5C7A;
+    animation: orbitParticleTwo 3.4s linear infinite;
+  }
+  @keyframes rotateCw {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  @keyframes rotateCcw {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(-360deg); }
+  }
+  @keyframes nodePulse {
+    0% { transform: scale(0.85); box-shadow: 0 0 6px #00D4FF; }
+    100% { transform: scale(1.2); box-shadow: 0 0 12px #00D4FF, 0 0 20px rgba(0, 212, 255, 0.9); }
+  }
+  @keyframes orbitParticleOne {
+    0% { transform: rotate(0deg) translateX(12px) rotate(0deg); }
+    100% { transform: rotate(360deg) translateX(12px) rotate(-360deg); }
+  }
+  @keyframes orbitParticleTwo {
+    0% { transform: rotate(180deg) translateX(13px) rotate(-180deg); }
+    100% { transform: rotate(540deg) translateX(13px) rotate(-540deg); }
+  }
+
+  .reactor-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    line-height: 1.1;
+  }
+  .reactor-title {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+    color: #F1EDFA;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .reactor-pulse-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #00D4FF;
+    box-shadow: 0 0 7px #00D4FF;
+    animation: dotPulseLive 1.4s infinite;
+  }
+  @keyframes dotPulseLive {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.35; transform: scale(0.75); }
+  }
+  .reactor-subtitle {
+    font-size: 8px;
     font-weight: 700;
-    padding: 2px 6px;
-    border-radius: 4px;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.6px;
+    color: var(--cyan);
     text-transform: uppercase;
   }
-  .role-admin { background: rgba(255, 184, 77, 0.2); color: #FFB84D; border: 1px solid rgba(255, 184, 77, 0.5); }
-  .role-analyst { background: rgba(0, 212, 255, 0.2); color: #7FE3FF; border: 1px solid rgba(0, 212, 255, 0.5); }
-  .role-viewer { background: rgba(168, 109, 255, 0.2); color: #D3B8FF; border: 1px solid rgba(168, 109, 255, 0.5); }
 
   .ws-live-pill {
     display: inline-flex;
@@ -1159,12 +1269,21 @@
       INCIDENT ARCHIVE
     </button>
 
-    <!-- RBAC User Profile Badge -->
-    <div class="user-profile-badge" id="userProfileBadge" onclick="openAuthModal()" title="Switch Operator Role (Admin / Analyst / Auditor) or Login">
-      <div class="user-avatar" id="headerAvatar">AD</div>
-      <div class="user-info-text">
-        <span class="user-name" id="headerUsername">admin</span>
-        <span class="role-tag role-admin" id="headerRole">ADMIN</span>
+    <!-- Futuristic Holographic Cyber Sentinel Reactor Animation -->
+    <div class="cyber-reactor-badge" title="AEGIS Quantum Neural Core · Active Sentinel Matrix">
+      <div class="reactor-core-wrap">
+        <div class="reactor-ring outer-ring"></div>
+        <div class="reactor-ring middle-hex"></div>
+        <div class="reactor-orbit-particle p1"></div>
+        <div class="reactor-orbit-particle p2"></div>
+        <div class="reactor-center-node"></div>
+      </div>
+      <div class="reactor-meta">
+        <div class="reactor-title">
+          <span class="reactor-pulse-dot"></span>
+          <span>NEURAL CORE</span>
+        </div>
+        <div class="reactor-subtitle">QUANTUM ACTIVE</div>
       </div>
     </div>
   </div>
