@@ -1,0 +1,3538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AEGIS AI — Threat Intelligence & Active Defense</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/leaflet.css" />
+<script src="/leaflet.js"></script>
+<script src="/chart.umd.min.js"></script>
+<script src="/three.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+  :root {
+    --bg: #080512;
+    --panel: rgba(15, 11, 26, 0.78);
+    --panel-solid: rgba(21, 15, 36, 0.92);
+    --panel-2: rgba(26, 18, 44, 0.85);
+    --border: rgba(168, 109, 255, 0.22);
+    --border-glow: rgba(168, 109, 255, 0.45);
+    --text: #F1EDFA;
+    --text-dim: #A199B5;
+    --safe: #A86DFF;
+    --safe-glow: rgba(168,109,255,0.4);
+    --alert: #FF5C7A;
+    --alert-glow: rgba(255,92,122,0.45);
+    --alert-dim: rgba(255,92,122,0.16);
+    --blocked: #8A859E;
+    --cyan: #00D4FF;
+    --gold: #FFB84D;
+  }
+  * { box-sizing: border-box; }
+  html {
+    background: #070410;
+    min-height: 100vh;
+  }
+  body {
+    margin: 0;
+    background: transparent !important;
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+    cursor: default;
+    position: relative;
+  }
+  .heading { font-family: 'Space Grotesk', sans-serif; }
+
+  #orbital-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 1;
+  }
+  .dim-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 1;
+    pointer-events: none;
+    background: radial-gradient(ellipse at 50% 35%, rgba(7,4,16,0.12) 0%, rgba(7,4,16,0.58) 100%);
+  }
+
+  header, main {
+    position: relative;
+    z-index: 2;
+  }
+  header {
+    padding: 18px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+    background: rgba(13, 9, 23, 0.85);
+    backdrop-filter: blur(12px);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  h1 { font-size: 21px; font-weight: 700; margin: 0; }
+  h1 .ai { color: var(--safe); font-weight: 500; }
+  .sub { color: var(--text-dim); font-size: 11px; margin-top: 4px; letter-spacing: 0.5px; }
+
+  /* Cyber Sentinel HUD Widget */
+  .cyber-sentinel-hud {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: rgba(18, 13, 31, 0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(168, 109, 255, 0.25);
+    border-radius: 8px;
+    padding: 8px 16px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    position: relative;
+    overflow: hidden;
+  }
+  .cyber-sentinel-hud::after {
+    content: "";
+    position: absolute;
+    top: 0; left: -100%; width: 50%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(168,109,255,0.12), transparent);
+    animation: hudScan 6s linear infinite;
+    pointer-events: none;
+  }
+  @keyframes hudScan { 0% { left: -100%; } 100% { left: 200%; } }
+
+  .hud-radar-scanner {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 1.5px solid rgba(0, 212, 255, 0.55);
+    background: radial-gradient(circle, rgba(0, 212, 255, 0.08) 0%, rgba(10, 7, 21, 0.9) 100%);
+    position: relative; overflow: hidden;
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.2);
+    flex-shrink: 0;
+  }
+  .radar-ring-inner { position: absolute; inset: 7px; border-radius: 50%; border: 1px dashed rgba(0, 212, 255, 0.35); }
+  .radar-crosshair-x { position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: rgba(0, 212, 255, 0.25); transform: translateY(-50%); }
+  .radar-crosshair-y { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(0, 212, 255, 0.25); transform: translateX(-50%); }
+  .radar-sweep {
+    position: absolute; inset: 0; border-radius: 50%;
+    background: conic-gradient(from 0deg, transparent 0deg, transparent 270deg, rgba(0, 212, 255, 0.65) 360deg);
+    animation: radarSweep 2.8s linear infinite;
+  }
+  @keyframes radarSweep { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  .radar-blip {
+    position: absolute; width: 4px; height: 4px; border-radius: 50%;
+    background: #FF5C7A; box-shadow: 0 0 6px #FF5C7A; animation: blipGlow 2.8s infinite;
+  }
+  .blip-1 { top: 9px; right: 8px; animation-delay: 0.5s; }
+  .blip-2 { bottom: 8px; left: 9px; background: #7FE3FF; box-shadow: 0 0 6px #7FE3FF; animation-delay: 1.8s; }
+  @keyframes blipGlow { 0%, 100% { opacity: 0; transform: scale(0.6); } 50% { opacity: 1; transform: scale(1.2); } }
+
+  .hud-meta { display: flex; flex-direction: column; gap: 3px; }
+  .hud-top-line { display: flex; align-items: center; gap: 12px; }
+  .hud-status-badge {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.8px;
+    color: #7FE3FF;
+  }
+  .status-indicator-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: #00D4FF;
+    box-shadow: 0 0 8px #00D4FF; animation: dotPulse 2s infinite;
+  }
+  @keyframes dotPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.8); } }
+  .hud-utc-clock { font-size: 10px; color: var(--text-dim); letter-spacing: 0.6px; }
+  .hud-bottom-line { display: flex; align-items: center; gap: 8px; }
+  .hud-telemetry { font-size: 9.5px; color: var(--text-dim); letter-spacing: 0.5px; }
+
+  .packet-waveform { display: flex; align-items: flex-end; gap: 3px; height: 13px; }
+  .packet-waveform .bar {
+    width: 3.5px;
+    background: linear-gradient(180deg, #7FE3FF 0%, #00D4FF 50%, #A86DFF 100%);
+    border-radius: 2px;
+    box-shadow: 0 0 6px rgba(0, 212, 255, 0.4), inset 1px 1px 0 rgba(255,255,255,0.45);
+    animation: waveBounce 1.5s ease-in-out infinite alternate;
+  }
+  .bar.b1 { height: 40%; animation-delay: 0.1s; }
+  .bar.b2 { height: 85%; animation-delay: 0.35s; }
+  .bar.b3 { height: 60%; animation-delay: 0.2s; }
+  .bar.b4 { height: 100%; animation-delay: 0.5s; }
+  .bar.b5 { height: 50%; animation-delay: 0.15s; }
+  @keyframes waveBounce { 0% { height: 25%; background: var(--safe); } 50% { height: 95%; background: #00D4FF; } 100% { height: 45%; background: var(--safe); } }
+
+  main { padding: 24px 32px 60px; max-width: 1320px; margin: 0 auto; }
+  .scene { }
+
+  .glass {
+    background: var(--panel);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    position: relative;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.4);
+    transition: border-color 0.2s ease;
+  }
+  .glass:hover {
+    border-color: rgba(168, 109, 255, 0.26);
+  }
+  .glass::before {
+    content: ""; position: absolute; top:0; left:0; right:0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(168,109,255,0.35), transparent);
+    z-index: 3; pointer-events: none;
+  }
+
+  .soc-security-posture {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(168, 109, 255, 0.08);
+    border: 1px solid rgba(168, 109, 255, 0.22);
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    color: #D3B8FF;
+  }
+  .posture-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: #00D4FF;
+    box-shadow: 0 0 8px #00D4FF;
+  }
+
+  /* Full-Stack Header Controls & User Identity */
+  .btn-header-fullstack {
+    background: linear-gradient(180deg, rgba(28, 20, 52, 0.85) 0%, rgba(14, 10, 26, 0.95) 100%);
+    border: 1px solid rgba(168, 109, 255, 0.35);
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    color: #EDE9F7;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 7px 13px;
+    border-radius: 7px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.1);
+  }
+  .btn-header-fullstack:hover {
+    border-color: var(--cyan);
+    color: var(--cyan);
+    box-shadow: 0 0 14px rgba(0,212,255,0.4);
+    transform: translateY(-1px);
+  }
+  .btn-header-fullstack:active {
+    transform: translateY(1px);
+  }
+
+  .user-profile-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(180deg, rgba(28, 20, 52, 0.9) 0%, rgba(16, 12, 30, 0.95) 100%);
+    border: 1px solid rgba(168, 109, 255, 0.35);
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #EDE9F7;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .user-profile-badge:hover {
+    border-color: #A86DFF;
+    box-shadow: 0 0 12px rgba(168, 109, 255, 0.35);
+  }
+  .role-tag {
+    font-size: 9.5px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .role-admin { background: rgba(255, 184, 77, 0.2); color: #FFB84D; border: 1px solid rgba(255, 184, 77, 0.5); }
+  .role-analyst { background: rgba(0, 212, 255, 0.2); color: #7FE3FF; border: 1px solid rgba(0, 212, 255, 0.5); }
+  .role-viewer { background: rgba(168, 109, 255, 0.2); color: #D3B8FF; border: 1px solid rgba(168, 109, 255, 0.5); }
+
+  .ws-live-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #00D4FF;
+    background: rgba(0, 212, 255, 0.09);
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    border-radius: 6px;
+    padding: 6px 10px;
+    letter-spacing: 0.5px;
+  }
+
+  /* Full-Stack Database Incident Table */
+  .history-table-wrap {
+    max-height: 480px;
+    overflow-y: auto;
+    border: 1px solid rgba(168, 109, 255, 0.2);
+    border-radius: 8px;
+    background: #0B0717;
+  }
+  .history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11.5px;
+  }
+  .history-table th {
+    background: #140D24;
+    color: var(--safe);
+    font-weight: 700;
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid rgba(168, 109, 255, 0.3);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    letter-spacing: 0.6px;
+  }
+  .history-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    color: var(--text);
+  }
+  .history-table tr:hover td {
+    background: rgba(168, 109, 255, 0.08);
+  }
+  .history-filter-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .history-search-input {
+    flex: 1;
+    min-width: 200px;
+    background: #110A1E;
+    border: 1px solid var(--border);
+    color: #EDE9F7;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    outline: none;
+  }
+  .history-search-input:focus { border-color: var(--safe); }
+  .history-select {
+    background: #110A1E;
+    border: 1px solid var(--border);
+    color: #EDE9F7;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    outline: none;
+  }
+
+  /* Quick Demo Role Switcher in Auth Modal */
+  .quick-roles-cluster {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .btn-quick-role {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    padding: 10px 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .btn-quick-role:hover {
+    border-color: var(--cyan);
+    background: rgba(0, 212, 255, 0.1);
+    transform: translateY(-2px);
+  }
+  .btn-quick-role.active-role {
+    border-color: var(--safe);
+    background: rgba(168, 109, 255, 0.15);
+  }
+  .btn-quick-role b { display: block; font-size: 11px; margin-bottom: 4px; }
+  .btn-quick-role span { font-size: 9.5px; color: var(--text-dim); }
+
+  .hero-row { display: grid; grid-template-columns: 220px 1fr 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .gauge-card {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: linear-gradient(145deg, rgba(25, 17, 44, 0.85) 0%, rgba(13, 9, 23, 0.92) 100%);
+    border: 1px solid rgba(168, 109, 255, 0.22);
+    border-top: 1.5px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 -2px 0 rgba(0,0,0,0.5);
+    border-radius: 10px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .gauge-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.6), 0 0 16px rgba(168, 109, 255, 0.18);
+  }
+  .gauge-label { color: var(--text-dim); font-size: 10.5px; letter-spacing: 1px; text-transform: uppercase; align-self: flex-start; }
+  .gauge-value { margin-top: -28px; text-align: center; }
+  .gauge-pct { font-size: 22px; font-weight: 700; }
+  .gauge-tag { font-size: 9.5px; letter-spacing: 1px; margin-top: 2px; }
+
+  .stat-card {
+    padding: 16px 18px;
+    background: linear-gradient(145deg, rgba(25, 17, 44, 0.85) 0%, rgba(13, 9, 23, 0.92) 100%);
+    border: 1px solid rgba(168, 109, 255, 0.22);
+    border-top: 1.5px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 -2px 0 rgba(0,0,0,0.5);
+    border-radius: 10px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.6), 0 0 16px rgba(168, 109, 255, 0.18);
+  }
+  .stat-label { color: var(--text-dim); font-size: 10.5px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
+  .stat-value { font-size: 27px; font-weight: 700; }
+  .stat-value.safe { color: var(--safe); text-shadow: 0 0 16px var(--safe-glow); }
+  .stat-value.attack { color: var(--alert); text-shadow: 0 0 16px var(--alert-glow); }
+
+  /* Map Container & HUD */
+  .map-card { margin-bottom: 20px; overflow: hidden; position: relative; }
+  #leafletMap {
+    height: 440px; width: 100%; background: #080614 !important; border-radius: 0 0 10px 10px; position: relative; z-index: 1; cursor: grab !important;
+  }
+  #leafletMap .leaflet-tile-pane {
+    opacity: 0.95;
+    transition: opacity 0.35s ease;
+  }
+  #leafletMap:active { cursor: grabbing !important; }
+  .leaflet-container { background: #080614 !important; font-family: 'IBM Plex Mono', monospace !important; cursor: grab !important; }
+  .leaflet-container:active { cursor: grabbing !important; }
+  .leaflet-bar a { background: rgba(21, 14, 36, 0.9) !important; color: #EDE9F7 !important; border-color: rgba(255,255,255,0.12) !important; }
+  .leaflet-bar a:hover { background: #23163e !important; color: var(--safe) !important; }
+  .btn-map-control {
+    background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text-dim);
+    font-size: 10px; padding: 4px 8px; border-radius: 5px; cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.5px; transition: all 0.15s ease;
+  }
+  .btn-map-control:hover, .btn-map-control.active-style {
+    color: var(--safe); border-color: var(--safe); background: rgba(168,109,255,0.18);
+  }
+  .map-hud-overlay {
+    position: absolute; bottom: 14px; left: 18px; right: 18px; display: flex; justify-content: space-between; pointer-events: none; z-index: 500;
+  }
+  .hud-box {
+    background: rgba(15, 9, 28, 0.85); backdrop-filter: blur(8px); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 14px; font-size: 10.5px; color: var(--text-dim); letter-spacing: 0.5px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  }
+  .hud-tag { font-size: 10px; color: #00D4FF; letter-spacing: 0.8px; font-weight: 600; }
+
+  /* Radar Beacon Markers */
+  .custom-map-icon { background: none; border: none; }
+  .pulse-beacon { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .pulse-beacon .beacon-core {
+    width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; z-index: 2;
+  }
+  .pulse-beacon.protected .beacon-core { background: rgba(127, 227, 255, 0.25); border: 1.8px solid #7FE3FF; color: #7FE3FF; box-shadow: 0 0 14px #7FE3FF; }
+  .pulse-beacon.threat .beacon-core { background: rgba(255, 92, 122, 0.25); border: 1.8px solid #FF5C7A; color: #FF5C7A; box-shadow: 0 0 14px #FF5C7A; }
+  .pulse-beacon.blocked .beacon-core { background: rgba(122, 122, 140, 0.25); border: 1.8px solid #7A7A8C; color: #7A7A8C; }
+  .pulse-beacon .beacon-ring {
+    position: absolute; width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid currentColor; opacity: 0;
+    animation: beaconPulse 2.2s ease-out infinite; pointer-events: none;
+  }
+  .pulse-beacon.protected .beacon-ring { border-color: #7FE3FF; }
+  .pulse-beacon.threat .beacon-ring { border-color: #FF5C7A; }
+  @keyframes beaconPulse { 0% { transform: scale(0.3); opacity: 1; } 100% { transform: scale(2.4); opacity: 0; } }
+  .beacon-label {
+    font-size: 9.5px; font-weight: 700; letter-spacing: 0.5px; margin-top: 3px; white-space: nowrap; text-shadow: 0 2px 5px rgba(0,0,0,0.95);
+  }
+  .pulse-beacon.protected .beacon-label { color: #7FE3FF; }
+  .pulse-beacon.threat .beacon-label { color: #FF5C7A; }
+  .pulse-beacon.blocked .beacon-label { color: #9C96AC; }
+
+  /* Tactical Popups */
+  .tactical-popup { font-family: 'IBM Plex Mono', monospace; font-size: 11px; line-height: 1.6; color: #EDE9F7; padding: 2px; }
+  .popup-title { font-weight: 700; color: #A86DFF; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 4px; margin-bottom: 6px; letter-spacing: 0.5px; }
+  .leaflet-popup-content-wrapper {
+    background: #150E24 !important; border: 1px solid var(--border-glow) !important; border-radius: 8px !important; box-shadow: 0 10px 30px rgba(0,0,0,0.8) !important;
+  }
+  .leaflet-popup-tip { background: #150E24 !important; }
+
+  /* MITRE ATT&CK Matrix Heatmap */
+  .mitre-panel { margin-bottom: 20px; }
+  .mitre-grid {
+    padding: 16px;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+  }
+  .mitre-col-header {
+    font-size: 10px; font-weight: 700; letter-spacing: 1px; color: var(--safe); text-transform: uppercase;
+    border-bottom: 1px solid rgba(168,109,255,0.3); padding-bottom: 6px; margin-bottom: 8px; text-align: center;
+  }
+  .mitre-card {
+    background: rgba(15, 9, 28, 0.7);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 10.5px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    position: relative;
+    overflow: hidden;
+  }
+  .mitre-card:hover {
+    border-color: var(--cyan);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0,212,255,0.15);
+  }
+  .mitre-card.active-threat {
+    border-color: var(--alert);
+    background: rgba(255, 92, 122, 0.12);
+    box-shadow: 0 0 14px rgba(255, 92, 122, 0.35);
+    animation: mitrePulse 1.8s infinite;
+  }
+  @keyframes mitrePulse {
+    0%,100% { border-color: rgba(255,92,122,0.6); }
+    50% { border-color: rgba(255,92,122,1); }
+  }
+  .mitre-card.mitigated {
+    border-color: var(--cyan);
+    background: rgba(0, 212, 255, 0.08);
+  }
+  .mitre-tid { font-size: 9px; color: var(--text-dim); font-weight: 700; letter-spacing: 0.5px; }
+  .mitre-name { font-weight: 600; color: var(--text); line-height: 1.3; }
+  .mitre-status { font-size: 8.5px; letter-spacing: 0.5px; margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+  .mitre-badge {
+    background: var(--alert); color: #07040e; font-weight: 700; font-size: 8px; padding: 1px 5px; border-radius: 3px; align-self: flex-start;
+  }
+
+  .grid-2 { display: grid; grid-template-columns: 1.45fr 1fr; gap: 18px; align-items: start; }
+  .panel-header {
+    padding: 13px 18px; border-bottom: 1px solid var(--border);
+    font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--safe);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .panel-header button {
+    background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+    font-size: 10.5px; padding: 5px 12px; border-radius: 6px; cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.5px; transition: all 0.2s;
+  }
+  .panel-header button:hover { color: var(--alert); border-color: var(--alert); }
+
+  #feed { max-height: 480px; overflow-y: auto; }
+  #feed::-webkit-scrollbar { width: 6px; }
+  #feed::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+  .alert-row {
+    padding: 11px 16px; border-bottom: 1px solid var(--border); cursor: pointer;
+    display: flex; align-items: center; gap: 12px; transition: background 0.15s ease;
+  }
+  .alert-row:hover { background: var(--panel-2); }
+  .badge { font-size: 10px; padding: 4px 8px; border-radius: 5px; font-weight: 700; letter-spacing: 0.5px; white-space: nowrap; }
+  .badge.attack { background: var(--alert-dim); color: var(--alert); box-shadow: 0 0 10px rgba(255,92,122,0.3); animation: badgepulse 1.6s ease-in-out infinite; }
+  .badge.normal { background: rgba(168,109,255,0.12); color: var(--safe); }
+  .badge.blocked { background: rgba(122,122,140,0.18); color: var(--blocked); }
+  @keyframes badgepulse { 0%,100%{box-shadow:0 0 6px rgba(255,92,122,0.3);} 50%{box-shadow:0 0 16px rgba(255,92,122,0.6);} }
+  
+  .alert-meta { flex: 1; min-width: 0; color: var(--text-dim); font-size: 11px; display: flex; gap: 8px; align-items: center; }
+  .alert-time { color: var(--text-dim); font-size: 10.5px; }
+  .alert-ip { color: var(--text); font-weight: 600; }
+  .alert-loc { color: var(--text-dim); }
+  .alert-conf { color: var(--text-dim); font-size: 11px; }
+  .alert-action { margin-left: 8px; }
+
+  /* Feed Row Block Buttons */
+  .btn-feed-block {
+    background: rgba(255, 92, 122, 0.18); border: 1px solid rgba(255, 92, 122, 0.65); color: #FF5C7A;
+    font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 700; padding: 5px 11px;
+    border-radius: 5px; cursor: pointer; transition: all 0.18s ease; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .btn-feed-block:hover {
+    background: #FF5C7A; color: #0A0715; box-shadow: 0 0 14px rgba(255, 92, 122, 0.75); transform: scale(1.03);
+  }
+  .btn-feed-unblock {
+    background: rgba(122, 122, 140, 0.2); border: 1px solid rgba(122, 122, 140, 0.5); color: #9C96AC;
+    font-family: 'IBM Plex Mono', monospace; font-size: 10px; padding: 4px 8px; border-radius: 5px; cursor: pointer;
+  }
+  .btn-feed-unblock:hover { color: #EDE9F7; border-color: #EDE9F7; }
+  .badge-feed-safe { font-size: 9.5px; color: var(--safe); opacity: 0.7; }
+  .empty-state { padding: 50px 20px; text-align: center; color: var(--text-dim); font-size: 12.5px; }
+
+  /* Right column widgets & 3D Chart Decks */
+  .chart-wrap { padding: 14px 18px; display: flex; justify-content: center; position: relative; }
+  .waterfall-card { margin-bottom: 18px; }
+
+  .chart-3d-deck {
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(ellipse at 50% 100%, rgba(28, 19, 52, 0.6) 0%, rgba(10, 6, 20, 0.8) 100%);
+    border-radius: 8px;
+    border: 1px solid rgba(168, 109, 255, 0.18);
+    border-top: 1.5px solid rgba(255, 255, 255, 0.14);
+    box-shadow: inset 0 3px 10px rgba(0, 0, 0, 0.7), 0 4px 14px rgba(0, 0, 0, 0.4);
+    padding: 10px 12px;
+    position: relative;
+    overflow: hidden;
+  }
+  .chart-3d-deck::before {
+    content: "";
+    position: absolute;
+    bottom: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.35), transparent);
+  }
+
+  .pie-3d-stage {
+    position: relative;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    filter: drop-shadow(0 14px 16px rgba(0,0,0,0.65)) drop-shadow(0 2px 8px rgba(168,109,255,0.22));
+    perspective: 600px;
+  }
+
+  /* 3D Volumetric Traffic Allocation Bar */
+  .traffic-vol-bar-container {
+    padding: 12px 18px 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(10, 6, 18, 0.45);
+    border-radius: 0 0 10px 10px;
+  }
+  .vol-bar-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 0.8px;
+    margin-bottom: 8px;
+  }
+  .traffic-vol-bar-3d {
+    height: 14px;
+    width: 100%;
+    background: #080412;
+    border-radius: 7px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.85), 0 2px 6px rgba(0, 0, 0, 0.35);
+    display: flex;
+    overflow: hidden;
+    position: relative;
+  }
+  .vol-seg {
+    height: 100%;
+    position: relative;
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    min-width: 2px;
+  }
+  .vol-normal {
+    background: linear-gradient(180deg, #C084FC 0%, #8A4FFF 50%, #5B21B6 100%);
+    box-shadow: 0 0 10px rgba(168, 109, 255, 0.4);
+  }
+  .vol-attack {
+    background: linear-gradient(180deg, #FDA4AF 0%, #FF5C7A 50%, #9F1239 100%);
+    box-shadow: 0 0 12px rgba(255, 92, 122, 0.5);
+  }
+  .vol-blocked {
+    background: linear-gradient(180deg, #94A3B8 0%, #64748B 50%, #334155 100%);
+  }
+  .vol-shine {
+    position: absolute;
+    top: 1px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.45), transparent);
+    border-radius: 3px;
+    pointer-events: none;
+  }
+  .vol-bar-legend {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9.5px;
+    color: var(--text-dim);
+    margin-top: 8px;
+    letter-spacing: 0.5px;
+  }
+
+  /* Dedicated Firewall Controller Panel */
+  .firewall-grid {
+    padding: 18px 22px; display: grid; grid-template-columns: 1fr 1.2fr; gap: 24px; align-items: start;
+  }
+  .firewall-title { font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--safe); margin-bottom: 6px; }
+  .firewall-hint { font-size: 11px; color: var(--text-dim); margin-bottom: 12px; line-height: 1.5; }
+  .block-form { display: flex; gap: 10px; }
+  .firewall-input {
+    flex: 1; background: #110A1E; border: 1px solid var(--border); color: #EDE9F7; font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px; padding: 9px 12px; border-radius: 6px; outline: none; transition: border-color 0.2s;
+  }
+  .firewall-input:focus { border-color: var(--safe); box-shadow: 0 0 10px rgba(168,109,255,0.25); }
+  .btn-block-action {
+    background: rgba(255, 92, 122, 0.22); border: 1px solid rgba(255, 92, 122, 0.7); color: #FF5C7A;
+    font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; font-weight: 700; padding: 9px 16px;
+    border-radius: 6px; cursor: pointer; white-space: nowrap; transition: all 0.2s;
+  }
+  .btn-block-action:hover { background: #FF5C7A; color: #0A0715; box-shadow: 0 0 16px rgba(255, 92, 122, 0.8); }
+  
+  .btn-lockdown {
+    background: rgba(255, 50, 50, 0.2); border: 1.5px solid #FF3333; color: #FF6666;
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; padding: 8px 14px;
+    border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    letter-spacing: 0.5px; transition: all 0.2s;
+  }
+  .btn-lockdown:hover, .btn-lockdown.active-lockdown {
+    background: #FF2222; color: #FFFFFF; box-shadow: 0 0 20px rgba(255,34,34,0.85);
+  }
+
+  .blocked-chips-container { display: flex; flex-wrap: wrap; gap: 8px; min-height: 42px; align-items: center; }
+  .blocked-chip {
+    background: rgba(255, 92, 122, 0.12); border: 1px solid rgba(255, 92, 122, 0.35);
+    border-radius: 6px; padding: 5px 10px; display: flex; align-items: center; gap: 8px; font-size: 11px;
+  }
+  .chip-ip { color: #FF5C7A; font-weight: 600; }
+  .btn-unblock-chip {
+    background: transparent; border: 1px solid rgba(255,255,255,0.15); color: var(--text-dim);
+    font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; padding: 2px 6px; border-radius: 4px; cursor: pointer;
+  }
+  .btn-unblock-chip:hover { color: #FFF; border-color: #FFF; background: rgba(255,255,255,0.1); }
+  .empty-blocklist { color: var(--text-dim); font-size: 11px; font-style: italic; }
+
+  /* Expanded Forensics & Incident Report Center */
+  #report-panel { margin-top: 20px; }
+  .report-tabs {
+    display: flex; gap: 2px; padding: 0 16px; border-bottom: 1px solid var(--border); background: rgba(10,7,21,0.4);
+  }
+  .report-tab-btn {
+    background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--text-dim);
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; padding: 12px 18px;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .report-tab-btn:hover { color: var(--text); }
+  .report-tab-btn.active-tab { color: var(--cyan); border-bottom-color: var(--cyan); }
+
+  .tab-content { padding: 18px; display: none; }
+  .tab-content.active-content { display: block; }
+  
+  #report-text {
+    white-space: pre-wrap; font-size: 12px; line-height: 1.7; color: var(--text);
+    padding: 16px; margin: 0; border-left: 2px solid var(--alert); background: rgba(10,7,21,0.35); border-radius: 4px;
+  }
+  
+  /* Packet Dissector & Hex Dump */
+  .dissector-tree {
+    background: #0D071A; border: 1px solid var(--border); border-radius: 6px; padding: 12px; margin-bottom: 14px; font-size: 11.5px; line-height: 1.7;
+  }
+  .dissector-item { display: flex; align-items: center; gap: 8px; color: var(--text-dim); }
+  .dissector-item b { color: var(--cyan); }
+  .hex-dump-box {
+    background: #080410; border: 1px solid rgba(0,212,255,0.2); border-radius: 6px; padding: 14px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #7FE3FF; overflow-x: auto; line-height: 1.5;
+  }
+
+  .firewall-syntax-box {
+    background: #0B0617; border: 1px solid var(--border); border-radius: 6px; padding: 14px;
+    font-size: 11px; color: #EDE9F7; line-height: 1.8;
+  }
+  .code-token { color: var(--safe); }
+  .code-comment { color: var(--text-dim); font-style: italic; }
+
+  .block-action { display: flex; justify-content: flex-end; align-items: center; gap: 12px; padding: 14px 18px; border-top: 1px solid var(--border); }
+  .btn-block {
+    background: rgba(255,92,122,0.2); border: 1px solid rgba(255,92,122,0.7); color: var(--alert);
+    font-size: 12px; padding: 10px 20px; border-radius: 6px; cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.5px; font-weight: 700; transition: all 0.2s;
+  }
+  .btn-block:hover { background: #FF5C7A; color: #0A0715; box-shadow: 0 0 16px rgba(255,92,122,0.75); }
+  .btn-unblock {
+    background: rgba(122,122,140,0.18); border: 1px solid rgba(122,122,140,0.45); color: #9C96AC;
+    font-size: 11.5px; padding: 9px 18px; border-radius: 6px; cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace; font-weight: 600;
+  }
+  .btn-unblock:hover { color: #EDE9F7; border-color: #EDE9F7; }
+
+  .btn-dossier-export {
+    background: rgba(255, 184, 77, 0.15); border: 1px solid rgba(255, 184, 77, 0.6); color: #FFB84D;
+    font-size: 11.5px; padding: 9px 18px; border-radius: 6px; cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;
+    transition: all 0.2s;
+  }
+  .btn-dossier-export:hover {
+    background: #FFB84D; color: #07040e; box-shadow: 0 0 16px rgba(255,184,77,0.7);
+  }
+
+  /* Printable Forensic Modal */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(5,2,10,0.88); backdrop-filter: blur(10px);
+    z-index: 10000; align-items: center; justify-content: center; padding: 20px;
+  }
+  .modal-card {
+    background: #0F091C; border: 1.5px solid var(--border-glow); border-radius: 12px;
+    width: 100%; max-width: 850px; max-height: 90vh; overflow-y: auto; padding: 30px; position: relative;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.9);
+  }
+  .dossier-header {
+    border-bottom: 2px solid #A86DFF; padding-bottom: 14px; margin-bottom: 20px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+  }
+  .dossier-title { font-size: 18px; font-weight: 700; color: #EDE9F7; font-family: 'Space Grotesk', sans-serif; }
+  .dossier-seal { font-size: 10px; color: #7FE3FF; letter-spacing: 1px; }
+
+  /* Responsive Interactive Pointers */
+  button, .btn-map-control, .btn-block, .btn-feed-block, .btn-block-action, .btn-dossier-export, .alert-row, .mitre-card, .report-tab-btn, a {
+    cursor: pointer;
+  }
+  input, select, textarea {
+    cursor: text;
+  }
+
+  /* Live Attack Simulation & Active Defense Control Bar - 3D Cyber Console */
+  .live-sim-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 22px;
+    margin-bottom: 22px;
+    background: linear-gradient(180deg, rgba(28, 20, 52, 0.94) 0%, rgba(13, 9, 24, 0.96) 100%);
+    border: 1px solid rgba(168, 109, 255, 0.3);
+    border-top: 1.5px solid rgba(255, 255, 255, 0.22);
+    border-bottom: 2px solid rgba(0, 0, 0, 0.7);
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 -2px 0 rgba(0, 0, 0, 0.4);
+    flex-wrap: wrap;
+    gap: 14px;
+    position: relative;
+    z-index: 5;
+  }
+  .sim-left-cluster {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .sim-status-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(10, 7, 21, 0.85);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-top: 1px solid rgba(255,255,255,0.22);
+    border-radius: 20px;
+    padding: 7px 15px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    color: var(--text-dim);
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.6);
+    transition: all 0.3s ease;
+  }
+  .sim-status-pill.active {
+    border-color: #FF5C7A;
+    background: rgba(255, 92, 122, 0.18);
+    color: #FF5C7A;
+    box-shadow: 0 0 14px rgba(255, 92, 122, 0.4), inset 0 1px 0 rgba(255,255,255,0.2);
+  }
+  .sim-pulse-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    transition: all 0.3s ease;
+  }
+  .sim-status-pill.active .sim-pulse-dot {
+    background: #FF5C7A;
+    box-shadow: 0 0 10px #FF5C7A;
+    animation: dotPulse 1.2s infinite;
+  }
+  .sim-stats-inline {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+  }
+  .sim-stat-item b {
+    color: var(--text);
+    margin-left: 4px;
+  }
+  .sim-right-cluster {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .btn-sim-ctl {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 10px 16px;
+    border-radius: 7px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+    border: 1px solid transparent;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -2px 0 rgba(0, 0, 0, 0.4);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+    position: relative;
+  }
+  .btn-sim-ctl:active {
+    transform: translateY(2px);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), inset 0 2px 4px rgba(0, 0, 0, 0.6);
+  }
+  .btn-stream-toggle {
+    background: linear-gradient(180deg, rgba(0, 212, 255, 0.25) 0%, rgba(0, 150, 200, 0.15) 100%);
+    border-color: rgba(0, 212, 255, 0.65);
+    color: #00D4FF;
+  }
+  .btn-stream-toggle:hover {
+    background: linear-gradient(180deg, #00D4FF 0%, #0099cc 100%);
+    color: #07040e;
+    box-shadow: 0 6px 20px rgba(0, 212, 255, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+  .btn-stream-toggle.running {
+    background: linear-gradient(180deg, rgba(255, 92, 122, 0.3) 0%, rgba(200, 40, 70, 0.2) 100%);
+    border-color: #FF5C7A;
+    color: #FF5C7A;
+    box-shadow: 0 0 16px rgba(255, 92, 122, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  }
+  .btn-autodefense {
+    background: linear-gradient(180deg, rgba(168, 109, 255, 0.25) 0%, rgba(120, 70, 210, 0.15) 100%);
+    border-color: rgba(168, 109, 255, 0.5);
+    color: #C49BFF;
+  }
+  .btn-autodefense.active-auto {
+    background: linear-gradient(180deg, rgba(0, 212, 255, 0.28) 0%, rgba(0, 160, 200, 0.18) 100%);
+    border-color: #00D4FF;
+    color: #7FE3FF;
+    box-shadow: 0 4px 16px rgba(0, 212, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  }
+  .btn-autodefense.manual-auto {
+    background: linear-gradient(180deg, rgba(255, 184, 77, 0.25) 0%, rgba(190, 130, 40, 0.15) 100%);
+    border-color: #FFB84D;
+    color: #FFB84D;
+  }
+  .btn-burst-attack {
+    background: linear-gradient(180deg, rgba(255, 92, 122, 0.25) 0%, rgba(180, 50, 80, 0.15) 100%);
+    border-color: rgba(255, 92, 122, 0.6);
+    color: #FF7B95;
+  }
+  .btn-burst-attack:hover {
+    background: linear-gradient(180deg, #FF5C7A 0%, #cc3355 100%);
+    color: #fff;
+    box-shadow: 0 6px 20px rgba(255, 92, 122, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  }
+  .btn-reset-demo {
+    background: linear-gradient(180deg, rgba(122, 122, 140, 0.2) 0%, rgba(80, 80, 95, 0.15) 100%);
+    border-color: rgba(122, 122, 140, 0.45);
+    color: #B4B0C2;
+  }
+  .btn-reset-demo:hover {
+    color: #EDE9F7;
+    border-color: #EDE9F7;
+    box-shadow: 0 4px 14px rgba(255,255,255,0.15);
+  }
+
+  /* Full-Stack Components: WebSockets, Header Badges, DB & Auth Modals */
+  .btn-header-fullstack {
+    background: linear-gradient(180deg, rgba(168, 109, 255, 0.2) 0%, rgba(120, 60, 200, 0.1) 100%);
+    border: 1px solid rgba(168, 109, 255, 0.45);
+    color: #EDE9F7;
+    padding: 7px 13px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.25s ease;
+  }
+  .btn-header-fullstack:hover {
+    background: linear-gradient(180deg, rgba(168, 109, 255, 0.4) 0%, rgba(120, 60, 200, 0.25) 100%);
+    border-color: #00D4FF;
+    color: #00D4FF;
+    box-shadow: 0 0 16px rgba(0, 212, 255, 0.35);
+    transform: translateY(-1px);
+  }
+
+  .ws-live-pill {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    padding: 5px 10px;
+    border-radius: 12px;
+    background: rgba(15, 11, 26, 0.85);
+    border: 1px solid rgba(168, 109, 255, 0.25);
+    transition: all 0.3s ease;
+  }
+  .ws-live-pill .ws-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .ws-live-pill.ws-connected {
+    border-color: rgba(0, 212, 255, 0.5);
+    color: #00D4FF;
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.2);
+  }
+  .ws-live-pill.ws-connected .ws-dot {
+    background: #00D4FF;
+    box-shadow: 0 0 8px #00D4FF;
+    animation: wsPulse 1.6s infinite;
+  }
+  .ws-live-pill.ws-disconnected {
+    border-color: rgba(255, 92, 122, 0.6);
+    color: #FF5C7A;
+  }
+  .ws-live-pill.ws-disconnected .ws-dot {
+    background: #FF5C7A;
+    box-shadow: 0 0 6px #FF5C7A;
+  }
+  @keyframes wsPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.85); }
+  }
+
+  .user-profile-badge {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 4px 10px 4px 6px;
+    background: rgba(21, 15, 36, 0.9);
+    border: 1px solid rgba(168, 109, 255, 0.35);
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+  }
+  .user-profile-badge:hover {
+    border-color: var(--cyan);
+    box-shadow: 0 0 14px rgba(0, 212, 255, 0.3);
+    transform: translateY(-1px);
+  }
+  .user-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #A86DFF, #00D4FF);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 800;
+    color: #07040e;
+  }
+  .user-info-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+  }
+  .user-name {
+    font-size: 11px;
+    font-weight: 700;
+    color: #F1EDFA;
+  }
+  .role-tag {
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 1px 4px;
+    border-radius: 3px;
+    margin-top: 2px;
+    display: inline-block;
+  }
+  .role-admin { background: rgba(255, 184, 77, 0.25); color: #FFB84D; border: 1px solid rgba(255, 184, 77, 0.4); }
+  .role-analyst { background: rgba(0, 212, 255, 0.25); color: #00D4FF; border: 1px solid rgba(0, 212, 255, 0.4); }
+  .role-viewer { background: rgba(148, 163, 184, 0.25); color: #CBD5E1; border: 1px solid rgba(148, 163, 184, 0.4); }
+
+  /* Historical Incident Explorer Modal */
+  .history-modal-content {
+    max-width: 980px !important;
+    width: 94vw;
+  }
+  .history-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: rgba(15, 11, 26, 0.9);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 14px;
+  }
+  .history-input {
+    background: #0D0818;
+    border: 1px solid rgba(168, 109, 255, 0.3);
+    color: #EDE9F7;
+    padding: 6px 10px;
+    font-size: 11px;
+    border-radius: 6px;
+    font-family: 'IBM Plex Mono', monospace;
+    outline: none;
+  }
+  .history-input:focus {
+    border-color: #00D4FF;
+    box-shadow: 0 0 8px rgba(0, 212, 255, 0.3);
+  }
+  .history-select {
+    background: #0D0818;
+    border: 1px solid rgba(168, 109, 255, 0.3);
+    color: #EDE9F7;
+    padding: 6px 8px;
+    font-size: 11px;
+    border-radius: 6px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .history-table-wrap {
+    max-height: 440px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: rgba(10, 6, 20, 0.85);
+  }
+  .history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    text-align: left;
+  }
+  .history-table th {
+    background: #170F28;
+    color: var(--safe);
+    font-weight: 700;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    letter-spacing: 0.5px;
+  }
+  .history-table td {
+    padding: 9px 12px;
+    border-bottom: 1px solid rgba(168, 109, 255, 0.12);
+    color: #EDE9F7;
+  }
+  .history-table tr:hover td {
+    background: rgba(168, 109, 255, 0.08);
+  }
+  .history-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 12px;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .history-page-btn {
+    background: #170F28;
+    border: 1px solid var(--border);
+    color: #EDE9F7;
+    padding: 5px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    transition: all 0.2s;
+  }
+  .history-page-btn:hover:not(:disabled) {
+    border-color: var(--cyan);
+    color: var(--cyan);
+  }
+  .history-page-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* Auth & RBAC Modal */
+  .auth-role-card {
+    background: rgba(18, 12, 32, 0.95);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+  .quick-roles-cluster {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 14px 0;
+  }
+  .btn-quick-role {
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(168, 109, 255, 0.3);
+    background: rgba(26, 18, 46, 0.85);
+    color: #EDE9F7;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.25s ease;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .btn-quick-role:hover {
+    border-color: #00D4FF;
+    box-shadow: 0 4px 14px rgba(0, 212, 255, 0.25);
+    transform: translateY(-2px);
+  }
+  .btn-quick-role.active-role {
+    border-color: #00D4FF;
+    background: rgba(0, 212, 255, 0.15);
+  }
+  .role-title { font-size: 11.5px; font-weight: 700; color: #FFF; margin-bottom: 3px; display: flex; align-items: center; gap: 5px; }
+  .role-desc { font-size: 9.5px; color: var(--text-dim); line-height: 1.3; }
+
+  .auth-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  @media (max-width: 1100px) {
+    .mitre-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 900px) {
+    .hero-row { grid-template-columns: repeat(2, 1fr); }
+    .grid-2 { grid-template-columns: 1fr; }
+    .firewall-grid { grid-template-columns: 1fr; }
+    .mitre-grid { grid-template-columns: repeat(2, 1fr); }
+    .quick-roles-cluster { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="orbital-bg"></canvas>
+<div class="dim-overlay"></div>
+
+<header>
+  <div class="brand">
+    <div>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#A86DFF" stroke-width="1.6" style="vertical-align:-5px;margin-right:8px;"><path d="M12 2 4 5v6c0 5 3.5 8.5 8 11 4.5-2.5 8-6 8-11V5l-8-3z"/></svg>
+      <h1 style="display:inline;">AEGIS <span class="ai">AI</span></h1>
+      <div class="sub">THREAT INTELLIGENCE &amp; ACTIVE DEFENSE — ENTERPRISE SOC PLATFORM</div>
+    </div>
+  </div>
+  <div style="display: flex; align-items: center; gap: 12px;">
+    <!-- WebSocket Live Stream Indicator -->
+    <div class="ws-live-pill ws-connected" id="wsLivePill" title="Socket.IO Real-Time Stream Status">
+      <span class="ws-dot"></span>
+      <span id="wsStatusText">WS: LIVE</span>
+    </div>
+
+    <!-- Persistent SQLite Incident Database Modal Trigger -->
+    <button class="btn-header-fullstack" onclick="openHistoryModal()" title="Search, Filter & Export Persistent SQLite Incident Records">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align:-2px;"><path d="M4 7V4h16v3M9 20h6M12 4v16"/><path d="M4 12h16M4 17h16"/></svg>
+      INCIDENT DB
+    </button>
+
+    <!-- RBAC User Profile Badge (Click to open Auth Modal) -->
+    <div class="user-profile-badge" id="userProfileBadge" onclick="openAuthModal()" title="Click to Switch Role (Admin / Analyst / Auditor) or Login">
+      <div class="user-avatar" id="headerAvatar">AD</div>
+      <div class="user-info-text">
+        <span class="user-name" id="headerUsername">admin</span>
+        <span class="role-tag role-admin" id="headerRole">ADMIN</span>
+      </div>
+    </div>
+
+    <div class="soc-security-posture" title="Enterprise Defense Posture: Real-Time Active Defense Online">
+      <span class="posture-dot"></span>
+      <span>SOC LEVEL-1 · ACTIVE DEFENSE</span>
+    </div>
+    <div class="cyber-sentinel-hud">
+    <div class="hud-radar-scanner" title="Tactical Defense Radar: Active 360 Sweep">
+      <div class="radar-crosshair-x"></div>
+      <div class="radar-crosshair-y"></div>
+      <div class="radar-sweep"></div>
+      <div class="radar-blip blip-1"></div>
+      <div class="radar-blip blip-2"></div>
+      <div class="radar-ring-inner"></div>
+    </div>
+    <div class="hud-meta">
+      <div class="hud-top-line">
+        <span class="hud-status-badge" id="hudStatusBadge">
+          <span class="status-indicator-dot"></span>
+          <span id="hudStatusText">ACTIVE DEFENSE · ARMED</span>
+        </span>
+        <span class="hud-utc-clock" id="hudClock">--:--:-- UTC</span>
+      </div>
+      <div class="hud-bottom-line">
+        <div class="packet-waveform" title="Live Deep Packet Inspection Rate">
+          <span class="bar b1"></span>
+          <span class="bar b2"></span>
+          <span class="bar b3"></span>
+          <span class="bar b4"></span>
+          <span class="bar b5"></span>
+        </div>
+        <span class="hud-telemetry" id="hudTelemetry">DPI STREAM: 2.8 GB/s · 240 FPS</span>
+      </div>
+    </div>
+  </div>
+  </div>
+</header>
+
+<main>
+<div class="scene" id="scene">
+
+  <!-- ================= COLLEGE DEMO: LIVE ATTACK & ACTIVE DEFENSE CONTROLLER ================= -->
+  <div class="glass live-sim-bar">
+    <div class="sim-left-cluster">
+      <div class="sim-status-pill" id="simStatusPill">
+        <span class="sim-pulse-dot" id="simPulseDot"></span>
+        <span id="simStatusText">LIVE ATTACK STREAM: STANDBY</span>
+      </div>
+      <div class="sim-stats-inline">
+        <span class="sim-stat-item">STREAMED: <b id="simStreamCount">0 PKTS</b></span>
+        <span class="sim-stat-item">DETECTED: <b id="simAtkCount" style="color:var(--alert);">0 ATK</b></span>
+        <span class="sim-stat-item">ACTIVE DROPS: <b id="simDropCount" style="color:var(--cyan);">0 BLK</b></span>
+      </div>
+    </div>
+    <div class="sim-right-cluster">
+      <button class="btn-sim-ctl btn-stream-toggle" id="btnStreamToggle" onclick="toggleLiveAttackStream()">
+        <span id="btnStreamIcon">▶</span> <span id="btnStreamText">START LIVE ATTACK STREAM</span>
+      </button>
+      <button class="btn-sim-ctl btn-autodefense active-auto" id="btnAutoDefenseToggle" onclick="toggleAutoDefense()">
+        <span id="autoDefIcon">🛡️</span> <span id="autoDefText">AUTO-DEFENSE: ACTIVE</span>
+      </button>
+      <button class="btn-sim-ctl btn-burst-attack" onclick="triggerTargetedAttackBurst()" title="Launch immediate 6-packet attack flood from Moscow">
+        ⚡ LAUNCH ATTACK BURST
+      </button>
+      <button class="btn-sim-ctl btn-reset-demo" onclick="resetFullDemo()" title="Reset all alerts and unblock all IPs to start fresh">
+        🧹 RESET DEMO
+      </button>
+    </div>
+  </div>
+
+  <div class="hero-row">
+    <div class="glass gauge-card">
+      <div class="gauge-label">Threat Level</div>
+      <svg width="140" height="78" viewBox="0 0 140 82">
+        <defs>
+          <filter id="gaugeShadow3d" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="4" stdDeviation="3.5" flood-color="rgba(0,0,0,0.75)" />
+          </filter>
+          <linearGradient id="gaugeTrackGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="rgba(255,255,255,0.14)"/>
+            <stop offset="100%" stop-color="rgba(0,0,0,0.6)"/>
+          </linearGradient>
+          <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#A86DFF"/>
+            <stop offset="55%" stop-color="#E0559C"/>
+            <stop offset="100%" stop-color="#FF5C7A"/>
+          </linearGradient>
+          <linearGradient id="gaugeSpecGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="rgba(255,255,255,0.7)"/>
+            <stop offset="100%" stop-color="transparent"/>
+          </linearGradient>
+        </defs>
+        <!-- 3D Inset Track Base -->
+        <path d="M10,70 A60,60 0 0,1 130,70" fill="none" stroke="#05030b" stroke-width="13" stroke-linecap="round"/>
+        <path d="M10,70 A60,60 0 0,1 130,70" fill="none" stroke="url(#gaugeTrackGrad)" stroke-width="10" stroke-linecap="round"/>
+        <!-- 3D Active Glowing Arc with Shadow -->
+        <path id="gaugeArc" d="M10,70 A60,60 0 0,1 130,70" fill="none" stroke="url(#gaugeGrad)" stroke-width="10" stroke-linecap="round" stroke-dasharray="189" stroke-dashoffset="189" filter="url(#gaugeShadow3d)"/>
+        <!-- Specular Highlight Ridge for 3D Tubular Look -->
+        <path d="M10,69 A60,60 0 0,1 130,69" fill="none" stroke="url(#gaugeSpecGrad)" stroke-width="1.8" stroke-linecap="round" opacity="0.65"/>
+      </svg>
+      <div class="gauge-value">
+        <div class="gauge-pct" id="gauge-pct">0%</div>
+        <div class="gauge-tag" id="gauge-tag">NOMINAL</div>
+      </div>
+    </div>
+    <div class="glass stat-card"><div class="stat-label">Connections Scanned</div><div class="stat-value" id="stat-total">0</div></div>
+    <div class="glass stat-card"><div class="stat-label">Normal Traffic</div><div class="stat-value safe" id="stat-normal">0</div></div>
+    <div class="glass stat-card"><div class="stat-label">Blocked Sources</div><div class="stat-value attack" id="stat-blocked">0</div></div>
+  </div>
+
+  <!-- REALISTIC GLOBAL THREAT MAP -->
+  <div class="glass map-card">
+    <div class="panel-header">
+      <span>&gt; Global Threat Intelligence Map</span>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <span class="hud-tag" id="mapStatus">● RADAR ACTIVE</span>
+        <button class="btn-map-control" onclick="panMap(-200, 0)" title="Pan West">◀ WEST</button>
+        <button class="btn-map-control" onclick="panMap(200, 0)" title="Pan East">EAST ▶</button>
+        <button class="btn-map-control active-style" id="btnStyleDark" onclick="switchMapStyle('dark')">TACTICAL</button>
+        <button class="btn-map-control" id="btnStyleSat" onclick="switchMapStyle('satellite')">SATELLITE</button>
+        <button class="btn-map-control" onclick="resetMapView()">RESET</button>
+      </div>
+    </div>
+    <div id="leafletMap"></div>
+    <div class="map-hud-overlay">
+      <div class="hud-box">
+        DEFENSE NODE: <span style="color:#7FE3FF;">NEW DELHI [28.61° N, 77.21° E]</span>
+      </div>
+      <div class="hud-box">
+        CARTOGRAPHY: <span id="hudLayerName" style="color:#A86DFF;">ESRI DARK GRAY · ZERO API KEY REQUIRED</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- MITRE ATT&CK TACTICAL MATRIX -->
+  <div class="glass mitre-panel">
+    <div class="panel-header">
+      <span>&gt; MITRE ATT&amp;CK Tactical Matrix &amp; Threat Telemetry</span>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <span class="hud-tag" id="mitreThreatCounter">0 DETECTED TACTICS</span>
+        <button onclick="resetMitreMatrix()">RESET TTPs</button>
+      </div>
+    </div>
+    <div class="mitre-grid">
+      <!-- Col 1: Reconnaissance -->
+      <div>
+        <div class="mitre-col-header">Reconnaissance</div>
+        <div class="mitre-card" id="mitre-t1595" onclick="showMitreModal('T1595.002', 'Port Scanning / Probe', 'Active network scanning attempting to map open services and firewall holes.', 'NIST SP 800-94 / CISA AA21-200A')">
+          <span class="mitre-tid">T1595.002</span>
+          <span class="mitre-name">Port Scanning</span>
+          <span class="mitre-status" id="status-t1595">● STANDBY</span>
+        </div>
+      </div>
+      <!-- Col 2: Initial Access -->
+      <div>
+        <div class="mitre-col-header">Initial Access</div>
+        <div class="mitre-card" id="mitre-t1190" onclick="showMitreModal('T1190', 'Exploit Public-Facing Application', 'Sending malformed payloads to network listening ports to compromise ingress services.', 'CIS Control 4.1 / NIST PR.PT-4')">
+          <span class="mitre-tid">T1190</span>
+          <span class="mitre-name">Exploit Public App</span>
+          <span class="mitre-status" id="status-t1190">● STANDBY</span>
+        </div>
+      </div>
+      <!-- Col 3: Credential Access -->
+      <div>
+        <div class="mitre-col-header">Credential Access</div>
+        <div class="mitre-card" id="mitre-t1110" onclick="showMitreModal('T1110.001', 'Password Guessing / Brute Force', 'Repeated unauthorized login sequences attempting to harvest legitimate user sessions.', 'NIST SP 800-63B / CISA AA22-011A')">
+          <span class="mitre-tid">T1110.001</span>
+          <span class="mitre-name">Brute Force / R2L</span>
+          <span class="mitre-status" id="status-t1110">● STANDBY</span>
+        </div>
+      </div>
+      <!-- Col 4: Privilege Escalation -->
+      <div>
+        <div class="mitre-col-header">Privilege Escalation</div>
+        <div class="mitre-card" id="mitre-t1068" onclick="showMitreModal('T1068', 'User-to-Root Exploitation', 'Local execution trying to escalate unprivileged network context to root shell access.', 'CIS Control 5.4 / NIST PR.AC-4')">
+          <span class="mitre-tid">T1068</span>
+          <span class="mitre-name">Exploitation for Priv</span>
+          <span class="mitre-status" id="status-t1068">● STANDBY</span>
+        </div>
+      </div>
+      <!-- Col 5: Defense Evasion -->
+      <div>
+        <div class="mitre-col-header">Defense Evasion</div>
+        <div class="mitre-card" id="mitre-t1027" onclick="showMitreModal('T1027', 'Malformed Fragments / Evasion', 'Segmenting IP packet fragments or crafting abnormal TCP handshake flags to bypass stateful firewalls.', 'NIST SP 800-41 / CISA AA21-131A')">
+          <span class="mitre-tid">T1027</span>
+          <span class="mitre-name">Fragment Evasion</span>
+          <span class="mitre-status" id="status-t1027">● STANDBY</span>
+        </div>
+      </div>
+      <!-- Col 6: Impact (DoS) -->
+      <div>
+        <div class="mitre-col-header">Impact (DoS)</div>
+        <div class="mitre-card" id="mitre-t1498" onclick="showMitreModal('T1498.001', 'Network Denial of Service (SYN Flood)', 'Flooding the protected node with asymmetric connection bursts to deplete connection tables.', 'NIST SP 800-189 / CISA Alert TA16-288A')">
+          <span class="mitre-tid">T1498.001</span>
+          <span class="mitre-name">Network DoS Flood</span>
+          <span class="mitre-status" id="status-t1498">● STANDBY</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <!-- Live Alert Feed -->
+    <div class="glass">
+      <div class="panel-header">
+        <span>&gt; Live Alert Feed</span>
+        <button onclick="clearAlerts()">CLEAR FEED</button>
+      </div>
+      <div id="feed"><div class="empty-state">No traffic scanned yet. Run the simulator to see live detections.</div></div>
+    </div>
+
+    <!-- Right Side: Telemetry Waterfall & Distribution -->
+    <div>
+      <div class="glass waterfall-card">
+        <div class="panel-header">
+          <span>&gt; Real-Time Network Telemetry Waterfall</span>
+          <span style="color:#00D4FF; font-size:10px;">3D CYBER STREAM</span>
+        </div>
+        <div class="chart-wrap" style="height:195px;">
+          <div class="chart-3d-deck">
+            <canvas id="waterfallChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass">
+        <div class="panel-header"><span>&gt; Threat Classification Breakdown</span></div>
+        <div class="chart-wrap" style="height:185px;">
+          <div class="pie-3d-stage">
+            <canvas id="pieChart"></canvas>
+          </div>
+        </div>
+        <!-- 3D Volumetric Traffic Allocation Bar -->
+        <div class="traffic-vol-bar-container">
+          <div class="vol-bar-header">
+            <span>TRAFFIC SPECTRUM ALLOCATION</span>
+            <span id="volTotalStatus" style="color:#7FE3FF;">REAL-TIME FLOW</span>
+          </div>
+          <div class="traffic-vol-bar-3d">
+            <div class="vol-seg vol-normal" id="volSegNormal" style="width:75%;" title="Normal Ingress Traffic">
+              <span class="vol-shine"></span>
+            </div>
+            <div class="vol-seg vol-attack" id="volSegAttack" style="width:15%;" title="Detected Threat Anomalies">
+              <span class="vol-shine"></span>
+            </div>
+            <div class="vol-seg vol-blocked" id="volSegBlocked" style="width:10%;" title="Active Firewall Drops">
+              <span class="vol-shine"></span>
+            </div>
+          </div>
+          <div class="vol-bar-legend">
+            <span><b style="color:var(--safe);">■</b> NORMAL <span id="volPctNormal">75%</span></span>
+            <span><b style="color:var(--alert);">■</b> ATTACK <span id="volPctAttack">15%</span></span>
+            <span><b style="color:var(--blocked);">■</b> BLOCKED <span id="volPctBlocked">10%</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dedicated Active Defense & Firewall Controller -->
+  <div class="glass" style="margin-top: 20px;">
+    <div class="panel-header">
+      <span>&gt; Active Defense &amp; SOAR Firewall Engine</span>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <button class="btn-lockdown" id="btnLockdown" onclick="toggleLockdown()">⚠️ EMERGENCY LOCKDOWN (DEFCON 1)</button>
+      </div>
+    </div>
+    <div class="firewall-grid">
+      <div class="firewall-col">
+        <div class="firewall-title">MANUAL IP DROPLIST ENFORCEMENT</div>
+        <div class="firewall-hint">Enter any IP address to block it instantly at the gateway firewall. Future packets are dropped before reaching the ML service:</div>
+        <div class="block-form">
+          <input type="text" id="manualIpInput" placeholder="Enter IP (e.g. 203.0.113.7)" class="firewall-input" />
+          <button class="btn-block-action" onclick="handleManualBlock()">🛑 BLOCK SOURCE</button>
+        </div>
+      </div>
+      <div class="firewall-col">
+        <div class="firewall-title">ACTIVE FIREWALL BLOCKLIST (<span id="blockedListCount">0</span>)</div>
+        <div class="firewall-hint">Malicious IPs currently rejected by the active defense perimeter:</div>
+        <div id="blockedIPsContainer" class="blocked-chips-container">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Incident Report & Deep Packet Forensics Center -->
+  <div class="glass" id="report-panel">
+    <div class="panel-header">
+      <span>&gt; Incident Forensics &amp; Deep Packet Inspection Center</span>
+      <button onclick="document.getElementById('report-panel').style.display='none'">MINIMIZE</button>
+    </div>
+    
+    <div class="report-tabs">
+      <button class="report-tab-btn active-tab" onclick="switchReportTab('xai')">🔍 EXPLAINABLE AI (SHAP)</button>
+      <button class="report-tab-btn" onclick="switchReportTab('dissector')">🔬 DEEP PACKET DISSECTOR &amp; HEX</button>
+      <button class="report-tab-btn" onclick="switchReportTab('firewall')">🛡️ FIREWALL SYNTAX &amp; PLAYBOOK</button>
+    </div>
+
+    <!-- Tab 1: XAI / Plain English -->
+    <div class="tab-content active-content" id="tab-xai">
+      <pre id="report-text"></pre>
+    </div>
+
+    <!-- Tab 2: Wireshark Packet Dissector & Hex -->
+    <div class="tab-content" id="tab-dissector">
+      <div class="dissector-tree" id="dissectorTree">
+        <!-- Generated dynamically -->
+      </div>
+      <div class="hex-dump-box" id="hexDumpBox">
+        <!-- Generated dynamically -->
+      </div>
+    </div>
+
+    <!-- Tab 3: Firewall Syntax -->
+    <div class="tab-content" id="tab-firewall">
+      <div class="firewall-syntax-box" id="firewallSyntax">
+        <!-- Generated dynamically -->
+      </div>
+    </div>
+
+    <div class="block-action" id="block-action-wrap">
+      <button class="btn-dossier-export" onclick="openForensicDossier()">📄 EXPORT FORENSIC DOSSIER</button>
+      <button class="btn-block" id="blockBtn">🛑 BLOCK SOURCE</button>
+      <button class="btn-unblock" id="unblockBtn" style="display:none;">UNBLOCK SOURCE</button>
+    </div>
+  </div>
+
+</div>
+</main>
+
+<!-- FORENSIC INCIDENT DOSSIER MODAL (Print Ready) -->
+<div class="modal-overlay" id="dossierModal">
+  <div class="modal-card">
+    <div class="dossier-header">
+      <div>
+        <div class="dossier-seal">AEGIS AI // CLASSIFIED THREAT INTELLIGENCE DOSSIER</div>
+        <div class="dossier-title" id="dossierModalTitle">INCIDENT FORENSIC RECORD</div>
+      </div>
+      <div style="text-align:right;">
+        <button class="btn-block-action" style="padding:6px 12px; font-size:10.5px;" onclick="window.print()">🖨️ PRINT / SAVE PDF</button>
+        <button class="btn-unblock" style="padding:6px 12px; font-size:10.5px; margin-left:6px;" onclick="closeForensicDossier()">CLOSE</button>
+      </div>
+    </div>
+    <div id="dossierContent" style="font-size:11.5px; line-height:1.7; color:#EDE9F7;">
+      <!-- Populated dynamically -->
+    </div>
+  </div>
+</div>
+
+<!-- MITRE DETAILS MODAL -->
+<div class="modal-overlay" id="mitreModal">
+  <div class="modal-card" style="max-width:650px;">
+    <div class="dossier-header">
+      <div>
+        <div class="dossier-seal" id="mitreModalTid">MITRE ATT&amp;CK TECHNIQUE</div>
+        <div class="dossier-title" id="mitreModalName">TECHNIQUE NAME</div>
+      </div>
+      <button class="btn-unblock" onclick="closeMitreModal()">CLOSE</button>
+    </div>
+    <div style="font-size:12px; line-height:1.7; color:#EDE9F7;">
+      <div style="margin-bottom:12px;" id="mitreModalDesc"></div>
+      <div style="background:#150E24; padding:12px; border-radius:6px; border:1px solid var(--border);">
+        <div style="color:var(--cyan); font-weight:700; margin-bottom:4px;">NIST SP 800-61 REMEDIATION GUIDELINE:</div>
+        <div id="mitreModalNist"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORICAL INCIDENT DATABASE MODAL (SQLite Explorer) -->
+<div class="modal-overlay" id="historyModal">
+  <div class="modal-card history-modal-content">
+    <div class="dossier-header">
+      <div>
+        <div class="dossier-seal">AEGIS AI // PERSISTENT SQLITE INCIDENT ARCHIVE</div>
+        <div class="dossier-title">SOC INCIDENT EXPLORER &amp; AUDIT TRAIL</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button class="btn-block-action" style="padding:6px 12px; font-size:10.5px;" onclick="exportHistoryCSV()" title="Download raw incident records in CSV format">📥 EXPORT CSV</button>
+        <button class="btn-unblock" style="padding:6px 12px; font-size:10.5px;" onclick="closeHistoryModal()">CLOSE</button>
+      </div>
+    </div>
+
+    <!-- Filter & Search Toolbar -->
+    <div class="history-filter-bar">
+      <input type="text" id="histSearchInput" class="history-input" placeholder="Search IP, Location, Attack..." style="flex:1; min-width:180px;" onkeydown="if(event.key==='Enter') applyHistoryFilters()">
+      
+      <select id="histTypeSelect" class="history-select" onchange="applyHistoryFilters()">
+        <option value="">All Attack Types</option>
+        <option value="DoS Hulk">DoS Hulk</option>
+        <option value="PortScan">PortScan</option>
+        <option value="DDoS">DDoS</option>
+        <option value="FTP-Patator">FTP-Patator</option>
+        <option value="SSH-Patator">SSH-Patator</option>
+        <option value="Bot">Botnet</option>
+        <option value="Normal">Normal Traffic</option>
+      </select>
+
+      <select id="histSeveritySelect" class="history-select" onchange="applyHistoryFilters()">
+        <option value="">All Severities</option>
+        <option value="CRITICAL">CRITICAL</option>
+        <option value="HIGH">HIGH</option>
+        <option value="MEDIUM">MEDIUM</option>
+        <option value="LOW">LOW</option>
+      </select>
+
+      <button class="history-page-btn" onclick="applyHistoryFilters()" style="padding:6px 12px;">🔍 Filter</button>
+      <button class="history-page-btn" onclick="resetHistoryFilters()" style="padding:6px 10px;">Reset</button>
+    </div>
+
+    <!-- Data Table Container -->
+    <div class="history-table-wrap">
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>TIMESTAMP</th>
+            <th>SOURCE IP</th>
+            <th>ATTACK TYPE</th>
+            <th>SEVERITY</th>
+            <th>OUTCOME</th>
+            <th>ORIGIN / GEO</th>
+          </tr>
+        </thead>
+        <tbody id="historyTableBody">
+          <tr><td colspan="7" style="text-align:center; padding:24px; color:var(--text-dim);">Loading incident history from SQLite...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination Controls -->
+    <div class="history-pagination">
+      <div id="histPageInfo">Showing records...</div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button class="history-page-btn" id="histBtnPrev" onclick="changeHistoryPage(-1)" disabled>&laquo; Prev</button>
+        <span id="histPageCurrent" style="padding:5px 8px; font-weight:700; color:var(--safe);">Page 1</span>
+        <button class="history-page-btn" id="histBtnNext" onclick="changeHistoryPage(1)">Next &raquo;</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AUTHENTICATION & ROLE-BASED ACCESS CONTROL MODAL -->
+<div class="modal-overlay" id="authModal">
+  <div class="modal-card" style="max-width:620px;">
+    <div class="dossier-header">
+      <div>
+        <div class="dossier-seal">AEGIS AI // ROLE-BASED ACCESS CONTROL (RBAC)</div>
+        <div class="dossier-title">IDENTITY &amp; ACCESS MANAGEMENT</div>
+      </div>
+      <button class="btn-unblock" onclick="closeAuthModal()">CLOSE</button>
+    </div>
+
+    <!-- Active Session Card -->
+    <div class="auth-role-card">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div class="user-avatar" id="modalSessionAvatar" style="width:36px; height:36px; font-size:14px;">AD</div>
+          <div>
+            <div style="font-size:13px; font-weight:700; color:#FFF;" id="modalSessionName">Administrator</div>
+            <div style="font-size:10px; color:var(--text-dim);" id="modalSessionRoleDesc">Role: Operations Director · Full Control</div>
+          </div>
+        </div>
+        <div>
+          <span class="role-tag role-admin" id="modalSessionTag">ADMIN</span>
+          <button class="history-page-btn" onclick="logoutSession()" style="margin-left:8px; padding:4px 10px; font-size:10px; color:#FF5C7A; border-color:rgba(255,92,122,0.4);">LOGOUT</button>
+        </div>
+      </div>
+      <div style="margin-top:10px; font-size:10px; color:var(--text-dim); display:flex; gap:14px; border-top:1px solid rgba(168,109,255,0.15); padding-top:8px;">
+        <div><span>JWT Session:</span> <span style="color:var(--safe);" id="modalJwtStatus">Active (Signed)</span></div>
+        <div><span>IP Triage:</span> <span style="color:#00D4FF;" id="modalPermTriage">Enabled</span></div>
+        <div><span>Firewall Write:</span> <span style="color:#00D4FF;" id="modalPermFirewall">Enabled</span></div>
+      </div>
+    </div>
+
+    <!-- Quick Demo Role Switcher -->
+    <div style="font-size:11px; font-weight:700; color:var(--safe); letter-spacing:0.8px; margin-bottom:6px;">
+      ⚡ QUICK ROLE SWITCH (ONE-CLICK DEMO ACCOUNTS)
+    </div>
+    <div class="quick-roles-cluster">
+      <button class="btn-quick-role" id="btnRoleAdmin" onclick="quickSwitchRole('admin', 'admin123')">
+        <div class="role-title">👑 Admin (Director)</div>
+        <div class="role-desc">Full access: Block/Unblock, Live Simulator, System Lockdown, Audit Logs.</div>
+      </button>
+      <button class="btn-quick-role" id="btnRoleAnalyst" onclick="quickSwitchRole('analyst', 'analyst123')">
+        <div class="role-title">🛡️ Analyst (Tier-2)</div>
+        <div class="role-desc">Triage incidents, trigger targeted bursts, manual IP block/unblock.</div>
+      </button>
+      <button class="btn-quick-role" id="btnRoleAuditor" onclick="quickSwitchRole('auditor', 'auditor123')">
+        <div class="role-title">👁️ Compliance Auditor</div>
+        <div class="role-desc">Read-only posture review, forensic dossier and CSV audit exports.</div>
+      </button>
+    </div>
+
+    <!-- Manual Login / Register Section -->
+    <div style="background:rgba(12,8,22,0.7); border:1px solid rgba(168,109,255,0.2); border-radius:8px; padding:12px; margin-top:10px;">
+      <div style="font-size:10.5px; font-weight:700; color:var(--text-dim); margin-bottom:8px; letter-spacing:0.5px;">CUSTOM CREDENTIAL LOGIN</div>
+      <div class="auth-form-grid">
+        <input type="text" id="authLoginUser" class="history-input" placeholder="Username (e.g. admin)">
+        <input type="password" id="authLoginPass" class="history-input" placeholder="Password">
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
+        <span id="authErrorMsg" style="font-size:10.5px; color:#FF5C7A;"></span>
+        <button class="btn-header-fullstack" onclick="submitCustomLogin()" style="padding:6px 16px;">AUTHENTICATE &raquo;</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================= Core System State & Logic ================= */
+const API_BASE = window.location.origin;
+let pieChart, waterfallChart;
+let currentAlerts = [];
+let currentBlockedSet = new Set();
+let isEmergencyLockdown = false;
+let activeIncident = null;
+
+// Telemetry Waterfall Data
+const waterfallLabels = Array(30).fill('');
+const ingressData = Array(30).fill(120);
+const attackPressureData = Array(30).fill(0);
+const blockedDropData = Array(30).fill(0);
+
+function initCharts() {
+  const ctxPie = document.getElementById('pieChart').getContext('2d');
+
+  // 3D Arc Shaders for Doughnut Chart
+  const gradNormal = ctxPie.createLinearGradient(0, 0, 180, 180);
+  gradNormal.addColorStop(0, '#C488FF');
+  gradNormal.addColorStop(0.5, '#9D5CFF');
+  gradNormal.addColorStop(1, '#5B17B0');
+
+  const gradAttack = ctxPie.createLinearGradient(0, 0, 180, 180);
+  gradAttack.addColorStop(0, '#FDA4AF');
+  gradAttack.addColorStop(0.5, '#FF5C7A');
+  gradAttack.addColorStop(1, '#9F1239');
+
+  const gradBlocked = ctxPie.createLinearGradient(0, 0, 180, 180);
+  gradBlocked.addColorStop(0, '#CBD5E1');
+  gradBlocked.addColorStop(0.5, '#64748B');
+  gradBlocked.addColorStop(1, '#334155');
+
+  pieChart = new Chart(ctxPie, {
+    type: 'doughnut',
+    data: {
+      labels: ['Normal', 'Attack', 'Blocked'],
+      datasets: [{
+        data: [0,0,0],
+        backgroundColor: [gradNormal, gradAttack, gradBlocked],
+        borderColor: '#110C24',
+        borderWidth: 3,
+        hoverOffset: 6,
+        borderRadius: 4,
+        spacing: 3
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '66%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            color: '#EDE9F7',
+            font: { family: 'IBM Plex Mono', size: 10.5, weight: '600' },
+            boxWidth: 10,
+            padding: 10
+          }
+        }
+      }
+    }
+  });
+
+  const ctxWater = document.getElementById('waterfallChart').getContext('2d');
+
+  // 3D Volumetric Area Gradients
+  const gradIngress = ctxWater.createLinearGradient(0, 0, 0, 160);
+  gradIngress.addColorStop(0, 'rgba(0, 212, 255, 0.65)');
+  gradIngress.addColorStop(0.4, 'rgba(0, 160, 215, 0.22)');
+  gradIngress.addColorStop(1, 'rgba(0, 40, 80, 0.01)');
+
+  const gradPressure = ctxWater.createLinearGradient(0, 0, 0, 160);
+  gradPressure.addColorStop(0, 'rgba(255, 92, 122, 0.75)');
+  gradPressure.addColorStop(0.4, 'rgba(255, 60, 95, 0.28)');
+  gradPressure.addColorStop(1, 'rgba(120, 15, 40, 0.01)');
+
+  const gradBlockedDrop = ctxWater.createLinearGradient(0, 0, 0, 160);
+  gradBlockedDrop.addColorStop(0, 'rgba(168, 109, 255, 0.6)');
+  gradBlockedDrop.addColorStop(0.5, 'rgba(120, 70, 200, 0.18)');
+  gradBlockedDrop.addColorStop(1, 'rgba(60, 20, 100, 0.01)');
+
+  waterfallChart = new Chart(ctxWater, {
+    type: 'line',
+    data: {
+      labels: waterfallLabels,
+      datasets: [
+        {
+          label: 'Ingress (Mbps)',
+          data: ingressData,
+          borderColor: '#00D4FF',
+          backgroundColor: gradIngress,
+          fill: true,
+          tension: 0.35,
+          borderWidth: 2.2,
+          pointRadius: 0
+        },
+        {
+          label: 'Threat Anomaly',
+          data: attackPressureData,
+          borderColor: '#FF5C7A',
+          backgroundColor: gradPressure,
+          fill: true,
+          tension: 0.3,
+          borderWidth: 2.2,
+          pointRadius: 0
+        },
+        {
+          label: 'Firewall Drops',
+          data: blockedDropData,
+          borderColor: '#A86DFF',
+          backgroundColor: gradBlockedDrop,
+          fill: true,
+          tension: 0.25,
+          borderWidth: 1.8,
+          borderDash: [4, 4],
+          pointRadius: 0
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      scales: {
+        x: { display: false },
+        y: {
+          grid: { color: 'rgba(168, 109, 255, 0.08)' },
+          ticks: { color: '#9C96AC', font: { family: 'IBM Plex Mono', size: 9.5 } },
+          min: 0,
+          max: 400
+        }
+      },
+      plugins: {
+        legend: {
+          labels: {
+            color: '#EDE9F7',
+            font: { family: 'IBM Plex Mono', size: 10 },
+            boxWidth: 10
+          }
+        }
+      }
+    }
+  });
+}
+
+function updateTelemetryWaterfall(stats) {
+  const attackRate = stats.attackRate || 0;
+  const normalRate = stats.normal || 1;
+
+  ingressData.shift();
+  ingressData.push(110 + Math.random() * 80 + (normalRate % 30) * 3);
+
+  attackPressureData.shift();
+  attackPressureData.push(attackRate > 0 ? (attackRate * 250 + Math.random() * 50) : 0);
+
+  blockedDropData.shift();
+  blockedDropData.push((stats.blocked || 0) > 0 ? (stats.blocked * 12 + Math.random() * 15) : 0);
+
+  if (waterfallChart) waterfallChart.update();
+}
+
+function updateSpectrumAllocationBar(stats) {
+  const normal = stats.normal || 0;
+  const attack = stats.attack || 0;
+  const blocked = stats.blocked || 0;
+  const total = normal + attack + blocked;
+
+  let pctNormal = 100, pctAttack = 0, pctBlocked = 0;
+  if (total > 0) {
+    pctNormal = Math.round((normal / total) * 100);
+    pctAttack = Math.round((attack / total) * 100);
+    pctBlocked = Math.max(0, 100 - pctNormal - pctAttack);
+  }
+
+  const segN = document.getElementById('volSegNormal');
+  const segA = document.getElementById('volSegAttack');
+  const segB = document.getElementById('volSegBlocked');
+  if (segN) segN.style.width = Math.max(pctNormal, 2) + '%';
+  if (segA) segA.style.width = Math.max(pctAttack, (attack > 0 ? 3 : 0)) + '%';
+  if (segB) segB.style.width = Math.max(pctBlocked, (blocked > 0 ? 3 : 0)) + '%';
+
+  const lblN = document.getElementById('volPctNormal');
+  const lblA = document.getElementById('volPctAttack');
+  const lblB = document.getElementById('volPctBlocked');
+  if (lblN) lblN.textContent = pctNormal + '%';
+  if (lblA) lblA.textContent = pctAttack + '%';
+  if (lblB) lblB.textContent = pctBlocked + '%';
+}
+
+function timeAgo(iso) {
+  const diff = Math.floor((Date.now() - new Date(iso)) / 1000);
+  if (diff < 60) return diff + 's ago';
+  if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+  return Math.floor(diff/3600) + 'h ago';
+}
+
+function updateGauge(pct) {
+  const total = 189;
+  const offset = total * (1 - pct/100);
+  document.getElementById('gaugeArc').setAttribute('stroke-dashoffset', offset);
+  document.getElementById('gauge-pct').textContent = Math.round(pct) + '%';
+  const tag = document.getElementById('gauge-tag');
+  let label, color;
+  if (pct < 20) { label='NOMINAL'; color='#A86DFF'; }
+  else if (pct < 50) { label='ELEVATED'; color='#E0559C'; }
+  else { label='HIGH'; color='#FF5C7A'; }
+  tag.textContent = label; tag.style.color = color;
+  document.getElementById('gauge-pct').style.color = color;
+}
+
+async function refreshStats() {
+  try {
+    const res = await fetch(`${API_BASE}/api/stats`);
+    const stats = await res.json();
+    document.getElementById('stat-total').textContent = stats.total;
+    document.getElementById('stat-normal').textContent = stats.normal;
+    document.getElementById('stat-blocked').textContent = stats.blockedCount || 0;
+    updateGauge((stats.attackRate || 0) * 100);
+    updateHudDefenseStatus(stats.attackRate || 0);
+    pieChart.data.datasets[0].data = [stats.normal, stats.attack, stats.blocked || 0];
+    pieChart.update();
+    updateTelemetryWaterfall(stats);
+    updateSpectrumAllocationBar(stats);
+  } catch (err) {
+    console.error("Stats refresh failed", err);
+  }
+}
+
+function updateHudDefenseStatus(attackRate) {
+  const text = document.getElementById('hudStatusText');
+  const badge = document.getElementById('hudStatusBadge');
+  const telemetry = document.getElementById('hudTelemetry');
+  if (!text || !badge) return;
+
+  if (isEmergencyLockdown) {
+    badge.style.color = '#FF2222';
+    badge.style.textShadow = '0 0 12px #FF2222';
+    text.textContent = 'DEFCON 1 · EMERGENCY LOCKDOWN ACTIVE';
+    if (telemetry) telemetry.textContent = 'NETWORK ISOLATION ENFORCED · ZERO TRUST INGRESS';
+    return;
+  }
+
+  if (attackRate > 0.45) {
+    badge.style.color = '#FF5C7A';
+    badge.style.textShadow = '0 0 10px rgba(255,92,122,0.7)';
+    text.textContent = 'HIGH THREAT · DEFENSE ENGAGED';
+    if (telemetry) telemetry.textContent = 'DPI STREAM: 4.8 GB/s · 480 FPS [DEFCON 2]';
+  } else if (attackRate > 0.2) {
+    badge.style.color = '#E0559C';
+    badge.style.textShadow = '0 0 10px rgba(224,85,156,0.6)';
+    text.textContent = 'ELEVATED · SENTRY ACTIVE';
+    if (telemetry) telemetry.textContent = 'DPI STREAM: 3.4 GB/s · 340 FPS [ELEVATED]';
+  } else {
+    badge.style.color = '#7FE3FF';
+    badge.style.textShadow = '0 0 10px rgba(127,227,255,0.6)';
+    text.textContent = 'ACTIVE DEFENSE · ARMED';
+    if (telemetry) telemetry.textContent = 'DPI STREAM: 2.4 GB/s · 240 FPS [NOMINAL]';
+  }
+}
+
+function updateHudClock() {
+  const d = new Date();
+  const pad = n => n.toString().padStart(2, '0');
+  const clock = `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())} UTC`;
+  const el = document.getElementById('hudClock');
+  if (el) el.textContent = clock;
+}
+setInterval(updateHudClock, 1000);
+updateHudClock();
+
+async function loadBlockedIPs() {
+  try {
+    const res = await fetch(`${API_BASE}/api/blocked`);
+    const data = await res.json();
+    const list = data.blockedIPs || [];
+    currentBlockedSet = new Set(list);
+    document.getElementById('blockedListCount').textContent = list.length;
+    const container = document.getElementById('blockedIPsContainer');
+    if (list.length === 0) {
+      container.innerHTML = '<div class="empty-blocklist">No active IP blocks. Use "BLOCK SOURCE" on any attack to defend.</div>';
+      return;
+    }
+    container.innerHTML = list.map(ip => `
+      <div class="blocked-chip">
+        <span class="chip-ip">🛑 ${ip}</span>
+        <button class="btn-unblock-chip" onclick="unblockIP('${ip}', event)">UNBLOCK</button>
+      </div>
+    `).join('');
+  } catch (err) {
+    console.error("Failed loading blocked IPs", err);
+  }
+}
+
+async function blockIP(ip, location, event) {
+  if (event) event.stopPropagation();
+  if (!ip) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/block`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ source_ip: ip })
+    });
+    if (!res.ok && res.status === 403) {
+      alert("Permission denied: You need Analyst or Admin role to block IPs.");
+      return;
+    }
+    currentBlockedSet.add(ip);
+    await refreshStats();
+    await loadBlockedIPs();
+    await refreshFeed();
+    if (activeIncident && activeIncident.source_ip === ip) {
+      showReport(activeIncident);
+    }
+    showToastNotification(`Firewall ACL rule created: BLOCKED ${ip}`);
+  } catch (err) {
+    console.error("Block failed", err);
+  }
+}
+
+async function unblockIP(ip, event) {
+  if (event) event.stopPropagation();
+  if (!ip) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/unblock`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ source_ip: ip })
+    });
+    if (!res.ok && res.status === 403) {
+      alert("Permission denied: You need Analyst or Admin role to unblock IPs.");
+      return;
+    }
+    currentBlockedSet.delete(ip);
+    await refreshStats();
+    await loadBlockedIPs();
+    await refreshFeed();
+    if (activeIncident && activeIncident.source_ip === ip) {
+      showReport(activeIncident);
+    }
+    showToastNotification(`Firewall ACL rule removed: UNBLOCKED ${ip}`);
+  } catch (err) {
+    console.error("Unblock failed", err);
+  }
+}
+
+async function handleManualBlock() {
+  const input = document.getElementById('manualIpInput');
+  const ip = input.value.trim();
+  if (!ip) return;
+  await blockIP(ip);
+  input.value = '';
+}
+
+async function toggleLockdown() {
+  isEmergencyLockdown = !isEmergencyLockdown;
+  const btn = document.getElementById('btnLockdown');
+  if (isEmergencyLockdown) {
+    btn.classList.add('active-lockdown');
+    btn.textContent = '🔒 LOCKDOWN ENGAGED (CLICK TO DISARM)';
+    updateHudDefenseStatus(1.0);
+    showToastNotification("DEFCON 1: Network Isolation Protocol Active");
+  } else {
+    btn.classList.remove('active-lockdown');
+    btn.textContent = '⚠️ EMERGENCY LOCKDOWN (DEFCON 1)';
+    refreshStats();
+    showToastNotification("Lockdown Disarmed: Normal Operations Resumed");
+  }
+  try {
+    await fetch(`${API_BASE}/api/emergency-lockdown`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ active: isEmergencyLockdown })
+    });
+  } catch(e) {
+    console.warn("Lockdown sync failed", e);
+  }
+}
+
+/* ================= MITRE ATT&CK Matrix Intelligence ================= */
+const mitreStats = {
+  t1595: 0,
+  t1190: 0,
+  t1110: 0,
+  t1068: 0,
+  t1027: 0,
+  t1498: 0
+};
+
+function updateMitreMatrix(alerts) {
+  let activeCount = 0;
+  alerts.forEach(a => {
+    const r = (a.report || '') + (a.prediction || '');
+    if (r.includes('DoS') || r.includes('Denial of Service')) {
+      mitreStats.t1498++;
+    }
+    if (r.includes('Probe') || r.includes('Port Scan')) {
+      mitreStats.t1595++;
+    }
+    if (r.includes('R2L') || r.includes('failed login') || r.includes('Brute Force')) {
+      mitreStats.t1110++;
+    }
+    if (r.includes('U2R') || r.includes('root shell')) {
+      mitreStats.t1068++;
+    }
+    if (r.includes('fragment')) {
+      mitreStats.t1027++;
+    }
+    if (a.prediction === 'Attack') {
+      mitreStats.t1190++;
+    }
+  });
+
+  function setCard(id, count, name) {
+    const card = document.getElementById(`mitre-${id}`);
+    const status = document.getElementById(`status-${id}`);
+    if (!card || !status) return;
+    if (count > 0) {
+      activeCount++;
+      card.classList.add('active-threat');
+      status.innerHTML = `<span class="mitre-badge">${count} DETECTED</span>`;
+    } else {
+      card.classList.remove('active-threat');
+      status.textContent = '● STANDBY';
+    }
+  }
+
+  setCard('t1595', mitreStats.t1595, 'Port Scan');
+  setCard('t1190', mitreStats.t1190, 'Exploit App');
+  setCard('t1110', mitreStats.t1110, 'Brute Force');
+  setCard('t1068', mitreStats.t1068, 'Priv Escalation');
+  setCard('t1027', mitreStats.t1027, 'Fragments');
+  setCard('t1498', mitreStats.t1498, 'DoS Flood');
+
+  document.getElementById('mitreThreatCounter').textContent = `${activeCount} DETECTED TACTICS`;
+}
+
+function resetMitreMatrix() {
+  Object.keys(mitreStats).forEach(k => mitreStats[k] = 0);
+  updateMitreMatrix([]);
+}
+
+function showMitreModal(tid, name, desc, nist) {
+  document.getElementById('mitreModalTid').textContent = `MITRE ATT&CK TACTIC // ${tid}`;
+  document.getElementById('mitreModalName').textContent = name;
+  document.getElementById('mitreModalDesc').textContent = desc;
+  document.getElementById('mitreModalNist').textContent = nist;
+  document.getElementById('mitreModal').style.display = 'flex';
+}
+function closeMitreModal() {
+  document.getElementById('mitreModal').style.display = 'none';
+}
+
+/* ================= Alert Feed & Deep Packet Dissection ================= */
+async function refreshFeed() {
+  try {
+    const res = await fetch(`${API_BASE}/api/alerts?limit=30`);
+    const alerts = await res.json();
+    currentAlerts = alerts;
+    checkForNewMapEvents(alerts);
+    updateMitreMatrix(alerts);
+    const feed = document.getElementById('feed');
+    if (alerts.length === 0) {
+      feed.innerHTML = '<div class="empty-state">No traffic scanned yet. Run the simulator to see live detections.</div>';
+      return;
+    }
+    feed.innerHTML = alerts.map((a, idx) => {
+      const isAttack = a.prediction === 'Attack';
+      const isBlocked = a.prediction === 'Blocked' || currentBlockedSet.has(a.source_ip);
+      const cls = isBlocked ? 'blocked' : (isAttack ? 'attack' : 'normal');
+      const label = isBlocked ? 'BLOCKED' : a.prediction.toUpperCase();
+
+      let actionBtn = '';
+      if (a.source_ip) {
+        if (isBlocked) {
+          actionBtn = `<button class="btn-feed-unblock" onclick="unblockIP('${a.source_ip}', event)">UNBLOCK</button>`;
+        } else if (isAttack) {
+          actionBtn = `<button class="btn-feed-block" onclick="blockIP('${a.source_ip}', '${a.location || ''}', event)">🛑 BLOCK SOURCE</button>`;
+        } else {
+          actionBtn = `<span class="badge-feed-safe">VERIFIED</span>`;
+        }
+      }
+
+      return `<div class="alert-row" data-idx="${idx}">
+        <span class="badge ${cls}">${label}</span>
+        <div class="alert-meta">
+          <span class="alert-time">${timeAgo(a.timestamp)}</span>
+          ${a.source_ip ? `<span class="alert-ip">${a.source_ip}</span>` : ''}
+          ${a.location ? `<span class="alert-loc">· ${a.location}</span>` : ''}
+        </div>
+        <div class="alert-conf">${Math.round(a.confidence*100)}% conf</div>
+        <div class="alert-action">${actionBtn}</div>
+      </div>`;
+    }).join('');
+
+    feed.querySelectorAll('.alert-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const idx = parseInt(row.getAttribute('data-idx'));
+        showReport(currentAlerts[idx]);
+      });
+    });
+  } catch (err) {
+    console.error("Feed refresh failed", err);
+  }
+}
+
+function showReport(alert) {
+  if (!alert) return;
+  activeIncident = alert;
+  document.getElementById('report-text').textContent = alert.report || `Status: ${alert.prediction}\nNo detailed report available for this connection.`;
+  
+  // Render Wireshark Dissector Tree
+  const ip = alert.source_ip || "203.0.113.7";
+  const loc = alert.location || "Simulated Origin";
+  const dissector = document.getElementById('dissectorTree');
+  dissector.innerHTML = `
+    <div class="dissector-item"><span>▼</span> <b>Frame 1:</b> 1420 bytes on wire (11360 bits), 1420 bytes captured</div>
+    <div class="dissector-item"><span>▼</span> <b>Ethernet II:</b> Src: 02:42:ac:11:00:02, Dst: 02:42:ac:11:00:03 (Delhi Gateway)</div>
+    <div class="dissector-item"><span>▼</span> <b>Internet Protocol Version 4:</b> Src: <span style="color:#FF5C7A;">${ip}</span> (${loc}), Dst: 10.0.0.1, TTL: 64, TOS: 0x00</div>
+    <div class="dissector-item"><span>▼</span> <b>Transmission Control Protocol:</b> Src Port: 44921, Dst Port: 80, Flags: [SYN], Seq: 391829104, Win: 64240</div>
+    <div class="dissector-item"><span>▼</span> <b>Intrusion Detection Assessment:</b> Classification: <b>${alert.prediction}</b> (${Math.round(alert.confidence * 100)}% confidence)</div>
+  `;
+
+  // Render Realistic Hex Dump
+  const hex = document.getElementById('hexDumpBox');
+  hex.innerHTML = `
+0000   45 00 00 3c 1a 2b 40 00  40 06 b2 c8 cb 00 71 07   E..<.+@.@.....q.
+0010   c6 33 64 04 04 93 00 50  a1 b2 c3 d4 00 00 00 00   .3d....P........
+0020   a0 02 fa f0 8a 3a 00 00  02 04 05 b4 04 02 08 0a   .....:..........
+0030   00 24 d1 a2 00 00 00 00  01 03 03 07               .$..........
+  `;
+
+  // Render Firewall Syntax
+  const syntax = document.getElementById('firewallSyntax');
+  syntax.innerHTML = `
+<div class="code-comment"># Linux Netfilter (iptables) — Drop packets at kernel ingress:</div>
+<div><span class="code-token">sudo iptables</span> -A INPUT -s ${ip} -j DROP</div>
+
+<div class="code-comment" style="margin-top:10px;"># Cisco ASA Firewall ACL:</div>
+<div><span class="code-token">access-list</span> BLOCK_ATTACKER extended deny ip host ${ip} any</div>
+
+<div class="code-comment" style="margin-top:10px;"># Cloudflare / AWS WAF Expression:</div>
+<div>(ip.src eq ${ip}) -&gt; Action: Block</div>
+  `;
+
+  const wrap = document.getElementById('block-action-wrap');
+  const blockBtn = document.getElementById('blockBtn');
+  const unblockBtn = document.getElementById('unblockBtn');
+  const isBlocked = alert.prediction === 'Blocked' || currentBlockedSet.has(alert.source_ip);
+
+  if (alert.source_ip) {
+    wrap.style.display = 'flex';
+    if (isBlocked) {
+      blockBtn.style.display = 'none';
+      unblockBtn.style.display = 'inline-block';
+      unblockBtn.textContent = `UNBLOCK SOURCE — ${alert.source_ip}`;
+      unblockBtn.onclick = () => unblockIP(alert.source_ip);
+    } else {
+      unblockBtn.style.display = 'none';
+      blockBtn.style.display = 'inline-block';
+      blockBtn.textContent = `🛑 BLOCK SOURCE — ${alert.source_ip}${alert.location ? ' (' + alert.location + ')' : ''}`;
+      blockBtn.onclick = () => blockIP(alert.source_ip, alert.location);
+    }
+  } else {
+    wrap.style.display = 'none';
+  }
+  document.getElementById('report-panel').style.display = 'block';
+}
+
+function switchReportTab(tabName) {
+  document.querySelectorAll('.report-tab-btn').forEach(btn => btn.classList.remove('active-tab'));
+  document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active-content'));
+
+  if (tabName === 'xai') {
+    event.target.classList.add('active-tab');
+    document.getElementById('tab-xai').classList.add('active-content');
+  } else if (tabName === 'dissector') {
+    event.target.classList.add('active-tab');
+    document.getElementById('tab-dissector').classList.add('active-content');
+  } else if (tabName === 'firewall') {
+    event.target.classList.add('active-tab');
+    document.getElementById('tab-firewall').classList.add('active-content');
+  }
+}
+
+function openForensicDossier() {
+  if (!activeIncident) return;
+  const ip = activeIncident.source_ip || "203.0.113.7";
+  const loc = activeIncident.location || "Unknown Geo";
+  const time = activeIncident.timestamp || new Date().toISOString();
+  const sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
+  document.getElementById('dossierModalTitle').textContent = `INCIDENT DOSSIER // REF-${Date.now()}`;
+  document.getElementById('dossierContent').innerHTML = `
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+      <div><b>Target Host:</b> Protected Node (New Delhi)</div>
+      <div><b>Adversary Source:</b> ${ip} (${loc})</div>
+      <div><b>Incident Time:</b> ${time}</div>
+      <div><b>AI Confidence:</b> ${Math.round(activeIncident.confidence * 100)}%</div>
+      <div><b>Classification:</b> ${activeIncident.prediction.toUpperCase()}</div>
+      <div><b>Defense Action:</b> ${currentBlockedSet.has(ip) ? "QUARANTINED AT FIREWALL" : "ACTIVE ENFORCEMENT PENDING"}</div>
+    </div>
+    <div style="border-top:1px solid rgba(255,255,255,0.1); padding-top:12px; margin-bottom:14px;">
+      <div style="color:#7FE3FF; font-weight:700; margin-bottom:6px;">EVIDENTIARY SHAP MACHINE LEARNING EXPLANATION:</div>
+      <div style="background:#090514; padding:12px; border-radius:6px; white-space:pre-wrap;">${activeIncident.report || 'No detailed SHAP report'}</div>
+    </div>
+    <div style="border-top:1px solid rgba(255,255,255,0.1); padding-top:12px;">
+      <div style="color:#FFB84D; font-weight:700; margin-bottom:4px;">CRYPTOGRAPHIC INTEGRITY CHECKSUM (SHA-256):</div>
+      <code style="background:#090514; padding:6px; display:block; border-radius:4px; font-size:10px; color:#A86DFF;">${sha256}</code>
+    </div>
+  `;
+  document.getElementById('dossierModal').style.display = 'flex';
+}
+function closeForensicDossier() {
+  document.getElementById('dossierModal').style.display = 'none';
+}
+
+async function clearAlerts() {
+  await fetch(`${API_BASE}/api/alerts`, { method:'DELETE' });
+  refreshFeed(); refreshStats();
+}
+
+function refreshAll() {
+  refreshStats();
+  loadBlockedIPs();
+  refreshFeed();
+}
+
+/* ================= Real Interactive Threat Map (Leaflet) ================= */
+const CITY_COORDS = {
+  "Moscow, Russia": [55.75, 37.61],
+  "Beijing, China": [39.90, 116.40],
+  "Lagos, Nigeria": [6.52, 3.38],
+  "Sao Paulo, Brazil": [-23.55, -46.63],
+  "Bucharest, Romania": [44.43, 26.10],
+  "Jakarta, Indonesia": [-6.20, 106.85],
+  "Frankfurt, Germany": [50.11, 8.68],
+  "Tokyo, Japan": [35.67, 139.65],
+  "London, UK": [51.50, -0.12],
+  "New York, USA": [40.71, -74.00],
+  "Sydney, Australia": [-33.86, 151.20]
+};
+const IP_COORDS = {
+  "203.0.113.7": [55.75, 37.61],
+  "198.51.100.4": [39.90, 116.40],
+  "192.0.2.15": [6.52, 3.38],
+  "198.51.100.22": [-23.55, -46.63],
+  "203.0.113.44": [44.43, 26.10],
+  "192.0.2.88": [-6.20, 106.85],
+  "198.51.100.99": [50.11, 8.68],
+  "203.0.113.111": [35.67, 139.65]
+};
+const DEST = { name: "New Delhi, India (Protected)", coords: [28.61, 77.21] };
+
+let leafletMap;
+const seenAlertIds = new Set();
+let isMapHovered = false;
+let activeTileLayers = [];
+
+function switchMapStyle(style) {
+  if (!leafletMap) return;
+  activeTileLayers.forEach(l => {
+    if (leafletMap.hasLayer(l)) leafletMap.removeLayer(l);
+  });
+  activeTileLayers = [];
+
+  const btnDark = document.getElementById('btnStyleDark');
+  const btnSat = document.getElementById('btnStyleSat');
+  const hudName = document.getElementById('hudLayerName');
+
+  if (btnDark) btnDark.classList.remove('active-style');
+  if (btnSat) btnSat.classList.remove('active-style');
+
+  if (style === 'satellite') {
+    if (btnSat) btnSat.classList.add('active-style');
+    if (hudName) {
+      hudName.textContent = 'ESRI SATELLITE · ZERO API KEY REQUIRED';
+      hudName.style.color = '#7FE3FF';
+    }
+    const satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 18,
+      attribution: 'ESRI Satellite'
+    }).addTo(leafletMap);
+    activeTileLayers.push(satLayer);
+  } else {
+    if (btnDark) btnDark.classList.add('active-style');
+    if (hudName) {
+      hudName.textContent = 'ESRI DARK GRAY · ZERO API KEY REQUIRED';
+      hudName.style.color = '#A86DFF';
+    }
+    const darkBase = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 16,
+      attribution: 'ESRI Dark Gray'
+    }).addTo(leafletMap);
+
+    const darkRef = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 16,
+      attribution: 'ESRI Dark Gray Reference'
+    }).addTo(leafletMap);
+
+    activeTileLayers.push(darkBase, darkRef);
+  }
+}
+
+function panMap(dx, dy) {
+  if (leafletMap) {
+    leafletMap.panBy([dx, dy], { animate: true, duration: 0.35 });
+  }
+}
+
+function initRealisticMap() {
+  if (leafletMap) return;
+  leafletMap = L.map('leafletMap', {
+    center: [26, 35],
+    zoom: 2,
+    minZoom: 1.5,
+    maxZoom: 9,
+    zoomControl: true,
+    attributionControl: false,
+    scrollWheelZoom: true,
+    worldCopyJump: true,
+    dragging: true
+  });
+
+  switchMapStyle('dark');
+
+  const mapEl = document.getElementById('leafletMap');
+  mapEl.addEventListener('mouseenter', () => {
+    isMapHovered = true;
+    scene.style.transform = 'rotateX(0deg) rotateY(0deg)';
+  });
+  mapEl.addEventListener('mouseleave', () => {
+    isMapHovered = false;
+  });
+
+  // Protected Node Beacon (New Delhi)
+  const destIcon = L.divIcon({
+    className: 'custom-map-icon',
+    html: `<div class="pulse-beacon protected">
+             <div class="beacon-ring"></div>
+             <div class="beacon-core">🛡️</div>
+             <div class="beacon-label">DELHI NODE</div>
+           </div>`,
+    iconSize: [40, 40],
+    iconAnchor: [20, 20]
+  });
+  L.marker(DEST.coords, { icon: destIcon }).addTo(leafletMap)
+    .bindPopup(`<div class="tactical-popup">
+                  <div class="popup-title">AEGIS DEFENSE NODE</div>
+                  <div><b>Location:</b> New Delhi, India</div>
+                  <div><b>Coordinates:</b> 28.61° N, 77.21° E</div>
+                  <div><b>Status:</b> ACTIVE DEFENSE FIREWALL ONLINE</div>
+                </div>`);
+
+  // Origin Sensor Markers
+  Object.keys(CITY_COORDS).forEach(cityName => {
+    const coords = CITY_COORDS[cityName];
+    const originIcon = L.divIcon({
+      className: 'custom-map-icon',
+      html: `<div class="pulse-beacon threat" id="beacon-${cityName.replace(/[^a-zA-Z]/g, '')}">
+               <div class="beacon-ring"></div>
+               <div class="beacon-core">●</div>
+               <div class="beacon-label">${cityName.split(',')[0]}</div>
+             </div>`,
+      iconSize: [30, 30],
+      iconAnchor: [15, 15]
+    });
+    const marker = L.marker(coords, { icon: originIcon }).addTo(leafletMap);
+    marker.bindPopup(`<div class="tactical-popup">
+                        <div class="popup-title">THREAT VECTOR SENSOR</div>
+                        <div><b>Origin:</b> ${cityName}</div>
+                        <div><b>Coordinates:</b> ${coords[0]}°, ${coords[1]}°</div>
+                      </div>`);
+  });
+}
+
+function resetMapView() {
+  if (leafletMap) leafletMap.setView([26, 35], 2);
+}
+
+/* ================= High-Visibility Cyber Threat Laser Arc Engine ================= */
+function getLaserOverlay() {
+  const mapEl = document.getElementById('leafletMap');
+  if (!mapEl) return null;
+  let svg = document.getElementById('laserArcOverlay');
+  if (!svg) {
+    svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.id = "laserArcOverlay";
+    svg.style.position = "absolute";
+    svg.style.top = "0";
+    svg.style.left = "0";
+    svg.style.width = "100%";
+    svg.style.height = "100%";
+    svg.style.zIndex = "550";
+    svg.style.pointerEvents = "none";
+    svg.style.overflow = "visible";
+
+    svg.innerHTML = `
+      <defs>
+        <filter id="laserGlowRed" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="3.5" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+        <filter id="laserGlowCyan" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="3.5" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+      </defs>
+    `;
+    mapEl.appendChild(svg);
+
+    if (leafletMap) {
+      leafletMap.on('movestart zoomstart', () => {
+        const activeGroups = svg.querySelectorAll('g.active-arc');
+        activeGroups.forEach(g => g.remove());
+      });
+    }
+  }
+  return svg;
+}
+
+function resolveAlertCoords(a) {
+  if (!a) return CITY_COORDS["Moscow, Russia"];
+  if (a.location && CITY_COORDS[a.location]) return CITY_COORDS[a.location];
+  if (a.location) {
+    const locLower = a.location.toLowerCase();
+    for (const city of Object.keys(CITY_COORDS)) {
+      if (locLower.includes(city.split(',')[0].toLowerCase())) {
+        return CITY_COORDS[city];
+      }
+    }
+  }
+  if (a.source_ip && IP_COORDS[a.source_ip]) {
+    return IP_COORDS[a.source_ip];
+  }
+  return CITY_COORDS["Moscow, Russia"];
+}
+
+function animateThreatArc(fromCoords, wasBlocked, label) {
+  if (!leafletMap) return;
+  if (!fromCoords || !Array.isArray(fromCoords)) {
+    fromCoords = CITY_COORDS["Moscow, Russia"];
+  }
+
+  const svg = getLaserOverlay();
+  if (!svg) return;
+
+  const p1 = leafletMap.latLngToContainerPoint(fromCoords);
+  const p2 = leafletMap.latLngToContainerPoint(DEST.coords);
+
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist < 10) return;
+
+  const midX = (p1.x + p2.x) / 2;
+  const arcHeight = Math.min(Math.max(dist * 0.32, 50), 130);
+  const midY = (p1.y + p2.y) / 2 - arcHeight;
+
+  const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  g.setAttribute("class", "active-arc");
+  svg.appendChild(g);
+
+  // Laser trajectory glow path
+  const arcPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  const d = `M ${p1.x} ${p1.y} Q ${midX} ${midY} ${p2.x} ${p2.y}`;
+  arcPath.setAttribute("d", d);
+  arcPath.setAttribute("fill", "none");
+  arcPath.setAttribute("stroke", wasBlocked ? "rgba(0, 212, 255, 0.55)" : "rgba(255, 92, 122, 0.75)");
+  arcPath.setAttribute("stroke-width", wasBlocked ? "2.5" : "3.2");
+  arcPath.setAttribute("stroke-dasharray", "8 5");
+  arcPath.setAttribute("filter", wasBlocked ? "url(#laserGlowCyan)" : "url(#laserGlowRed)");
+  g.appendChild(arcPath);
+
+  // Traveling high-energy photon missile (laser pulse)
+  const missile = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  missile.setAttribute("r", wasBlocked ? "5" : "6.5");
+  missile.setAttribute("fill", "#FFFFFF");
+  missile.setAttribute("stroke", wasBlocked ? "#00D4FF" : "#FF5C7A");
+  missile.setAttribute("stroke-width", "2.5");
+  missile.setAttribute("filter", wasBlocked ? "url(#laserGlowCyan)" : "url(#laserGlowRed)");
+  g.appendChild(missile);
+
+  const totalLen = arcPath.getTotalLength();
+  const stopFraction = wasBlocked ? 0.52 : 1.0;
+  const duration = 1200;
+  const start = performance.now();
+
+  function step(now) {
+    const elapsed = now - start;
+    const progress = Math.min(elapsed / duration, 1);
+    const easeT = progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress;
+    const currT = easeT * stopFraction;
+    const pt = arcPath.getPointAtLength(currT * totalLen);
+
+    missile.setAttribute("cx", pt.x);
+    missile.setAttribute("cy", pt.y);
+
+    if (progress < 1) {
+      requestAnimationFrame(step);
+    } else {
+      missile.remove();
+      arcPath.setAttribute("stroke-opacity", "0.3");
+
+      if (wasBlocked) {
+        // Active Defense Shield Deflection
+        renderShieldDeflection(g, pt.x, pt.y);
+      } else {
+        // Impact at Delhi Node
+        renderDelhiImpact(g, p2.x, p2.y);
+      }
+
+      setTimeout(() => {
+        let fadeOp = 0.3;
+        const fadeInterval = setInterval(() => {
+          fadeOp -= 0.05;
+          if (fadeOp <= 0) {
+            clearInterval(fadeInterval);
+            g.remove();
+          } else {
+            arcPath.setAttribute("stroke-opacity", fadeOp);
+          }
+        }, 35);
+      }, 800);
+    }
+  }
+
+  requestAnimationFrame(step);
+}
+
+function renderShieldDeflection(group, x, y) {
+  const ring = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  ring.setAttribute("cx", x);
+  ring.setAttribute("cy", y);
+  ring.setAttribute("r", "7");
+  ring.setAttribute("fill", "rgba(0, 212, 255, 0.25)");
+  ring.setAttribute("stroke", "#00D4FF");
+  ring.setAttribute("stroke-width", "2.5");
+  ring.setAttribute("filter", "url(#laserGlowCyan)");
+  group.appendChild(ring);
+
+  const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  label.setAttribute("x", x);
+  label.setAttribute("y", y - 12);
+  label.setAttribute("text-anchor", "middle");
+  label.setAttribute("fill", "#00D4FF");
+  label.setAttribute("font-family", "'IBM Plex Mono', monospace");
+  label.setAttribute("font-size", "10px");
+  label.setAttribute("font-weight", "700");
+  label.textContent = "🛡️ DEFENSE SHIELD: BLOCKED";
+  group.appendChild(label);
+
+  let r = 7, op = 1;
+  const anim = setInterval(() => {
+    r += 2.5;
+    op -= 0.06;
+    ring.setAttribute("r", r);
+    ring.setAttribute("stroke-opacity", op);
+    ring.setAttribute("fill-opacity", op * 0.25);
+    label.setAttribute("opacity", op);
+    if (op <= 0) {
+      clearInterval(anim);
+      ring.remove();
+      label.remove();
+    }
+  }, 35);
+}
+
+function renderDelhiImpact(group, x, y) {
+  const ring = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  ring.setAttribute("cx", x);
+  ring.setAttribute("cy", y);
+  ring.setAttribute("r", "8");
+  ring.setAttribute("fill", "rgba(255, 92, 122, 0.35)");
+  ring.setAttribute("stroke", "#FF5C7A");
+  ring.setAttribute("stroke-width", "3");
+  ring.setAttribute("filter", "url(#laserGlowRed)");
+  group.appendChild(ring);
+
+  const delhiBeacon = document.querySelector('.pulse-beacon.protected');
+  if (delhiBeacon) {
+    delhiBeacon.style.boxShadow = '0 0 25px #FF5C7A';
+    setTimeout(() => { if (delhiBeacon) delhiBeacon.style.boxShadow = ''; }, 600);
+  }
+
+  let r = 8, op = 1;
+  const anim = setInterval(() => {
+    r += 3.5;
+    op -= 0.06;
+    ring.setAttribute("r", r);
+    ring.setAttribute("stroke-opacity", op);
+    ring.setAttribute("fill-opacity", op * 0.25);
+    if (op <= 0) {
+      clearInterval(anim);
+      ring.remove();
+    }
+  }, 35);
+}
+
+let isInitialMapLoad = true;
+function checkForNewMapEvents(alerts) {
+  if (!alerts || !Array.isArray(alerts)) return;
+  if (isInitialMapLoad) {
+    alerts.forEach(a => seenAlertIds.add(a.id));
+    isInitialMapLoad = false;
+    return;
+  }
+  for (let i = 0; i < Math.min(alerts.length, 6); i++) {
+    const a = alerts[i];
+    if (seenAlertIds.has(a.id)) continue;
+    seenAlertIds.add(a.id);
+    if (a.prediction === 'Attack' || a.prediction === 'Blocked') {
+      const coords = resolveAlertCoords(a);
+      const isBlocked = (a.prediction === 'Blocked' || currentBlockedSet.has(a.source_ip));
+      animateThreatArc(coords, isBlocked, a.location || a.source_ip);
+    }
+  }
+}
+
+// Global console helper for testing
+window.testLaserArc = function(cityName = "Moscow, Russia", wasBlocked = false) {
+  const coords = CITY_COORDS[cityName] || [55.75, 37.61];
+  animateThreatArc(coords, wasBlocked, cityName);
+};
+
+/* ================= Live Attack Simulator & Active Defense Controls ================= */
+let isSimulatorRunning = false;
+let autoDefenseActive = true;
+
+async function syncSimulatorStatus() {
+  try {
+    const res = await fetch(`${API_BASE}/api/simulator/status`);
+    const data = await res.json();
+    isSimulatorRunning = data.isRunning;
+    autoDefenseActive = data.autoDefense;
+
+    // Update pill
+    const pill = document.getElementById('simStatusPill');
+    const text = document.getElementById('simStatusText');
+    const btn = document.getElementById('btnStreamToggle');
+    const icon = document.getElementById('btnStreamIcon');
+    const btext = document.getElementById('btnStreamText');
+
+    if (isSimulatorRunning) {
+      if (pill) pill.classList.add('active');
+      if (text) text.textContent = 'LIVE ATTACK STREAM: ACTIVE';
+      if (btn) btn.classList.add('running');
+      if (icon) icon.textContent = '⏸';
+      if (btext) btext.textContent = 'PAUSE LIVE STREAM';
+    } else {
+      if (pill) pill.classList.remove('active');
+      if (text) text.textContent = 'LIVE ATTACK STREAM: STANDBY';
+      if (btn) btn.classList.remove('running');
+      if (icon) icon.textContent = '▶';
+      if (btext) btext.textContent = 'START LIVE ATTACK STREAM';
+    }
+
+    // Update auto defense button
+    const defBtn = document.getElementById('btnAutoDefenseToggle');
+    const defIcon = document.getElementById('autoDefIcon');
+    const defText = document.getElementById('autoDefText');
+    if (autoDefenseActive) {
+      if (defBtn) {
+        defBtn.className = 'btn-sim-ctl btn-autodefense active-auto';
+        if (defIcon) defIcon.textContent = '🛡️';
+        if (defText) defText.textContent = 'AUTO-DEFENSE: ACTIVE';
+      }
+    } else {
+      if (defBtn) {
+        defBtn.className = 'btn-sim-ctl btn-autodefense manual-auto';
+        if (defIcon) defIcon.textContent = '⚠️';
+        if (defText) defText.textContent = 'AUTO-DEFENSE: MANUAL';
+      }
+    }
+
+    // Update stats
+    if (data.stats) {
+      const elPkt = document.getElementById('simStreamCount');
+      const elAtk = document.getElementById('simAtkCount');
+      const elBlk = document.getElementById('simDropCount');
+      if (elPkt) elPkt.textContent = `${data.stats.totalSent} PKTS`;
+      if (elAtk) elAtk.textContent = `${data.stats.attacksDetected} ATK`;
+      if (elBlk) elBlk.textContent = `${data.stats.autoBlocked} BLK`;
+    }
+  } catch (err) {
+    console.warn("Simulator status sync error:", err);
+  }
+}
+
+async function toggleLiveAttackStream() {
+  try {
+    const endpoint = isSimulatorRunning ? '/api/simulator/stop' : '/api/simulator/start';
+    const res = await fetch(`${API_BASE}${endpoint}`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    if (!res.ok && res.status === 403) {
+      alert("Permission denied: Live attack stream requires Analyst or Admin role.");
+      return;
+    }
+    await syncSimulatorStatus();
+    await refreshAll();
+  } catch (err) {
+    console.error("Failed toggling live attack stream", err);
+  }
+}
+
+async function toggleAutoDefense() {
+  try {
+    const res = await fetch(`${API_BASE}/api/simulator/toggle-autodefense`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    if (!res.ok && res.status === 403) {
+      alert("Permission denied: Auto-defense control requires Analyst or Admin role.");
+      return;
+    }
+    await syncSimulatorStatus();
+  } catch (err) {
+    console.error("Failed toggling auto defense", err);
+  }
+}
+
+async function triggerTargetedAttackBurst() {
+  try {
+    const isBlocked = currentBlockedSet.has('203.0.113.7');
+    animateThreatArc(CITY_COORDS["Moscow, Russia"], isBlocked, "Moscow, Russia");
+    const res = await fetch(`${API_BASE}/api/simulator/burst`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ ip: '203.0.113.7', count: 6 })
+    });
+    if (!res.ok && res.status === 403) {
+      alert("Permission denied: Attack simulation requires Analyst or Admin role.");
+      return;
+    }
+    await syncSimulatorStatus();
+    await refreshAll();
+  } catch (err) {
+    console.error("Failed launching attack burst", err);
+  }
+}
+
+async function resetFullDemo() {
+  if (!confirm("Are you sure you want to reset all demo alerts, blocklists, and stats?")) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/reset-demo`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    if (!res.ok && res.status === 403) {
+      alert("Permission denied: System reset requires Admin role.");
+      return;
+    }
+    currentAlerts = [];
+    seenAlertIds.clear();
+    isInitialMapLoad = false;
+    currentBlockedSet.clear();
+    const svg = document.getElementById('laserArcOverlay');
+    if (svg) {
+      svg.querySelectorAll('g.active-arc').forEach(g => g.remove());
+    }
+    await syncSimulatorStatus();
+    await refreshAll();
+    showToastNotification("All demo telemetry & firewall states have been reset");
+  } catch (err) {
+    console.error("Failed resetting demo", err);
+  }
+}
+
+/* ================= Full-Stack Architecture: WebSockets, JWT & RBAC, SQLite History ================= */
+let authToken = localStorage.getItem('aegis_jwt_token') || null;
+let currentUser = JSON.parse(localStorage.getItem('aegis_jwt_user') || 'null');
+let socketClient = null;
+
+function getAuthHeaders(extra = {}) {
+  const headers = { ...extra };
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+  return headers;
+}
+
+function showToastNotification(msg) {
+  let toast = document.getElementById('aegisGlobalToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'aegisGlobalToast';
+    toast.style.cssText = `
+      position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+      background: rgba(21, 15, 36, 0.95); border: 1px solid #00D4FF;
+      color: #EDE9F7; padding: 10px 18px; border-radius: 8px;
+      font-size: 11.5px; font-weight: 600; font-family: 'IBM Plex Mono', monospace;
+      box-shadow: 0 4px 20px rgba(0, 212, 255, 0.4); display: flex; align-items: center;
+      gap: 10px; transition: opacity 0.3s ease, transform 0.3s ease;
+    `;
+    document.body.appendChild(toast);
+  }
+  toast.innerHTML = `<span style="color:#00D4FF;">🛡️</span> ${msg}`;
+  toast.style.opacity = '1';
+  toast.style.transform = 'translateY(0)';
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(10px)';
+  }, 2800);
+}
+
+// 1. Socket.IO Real-Time Engine
+function initSocketIO() {
+  const pill = document.getElementById('wsLivePill');
+  const txt = document.getElementById('wsStatusText');
+  try {
+    if (typeof io !== 'undefined') {
+      socketClient = io();
+      socketClient.on('connect', () => {
+        if (pill) {
+          pill.className = 'ws-live-pill ws-connected';
+          if (txt) txt.textContent = 'WS: LIVE';
+        }
+      });
+      socketClient.on('disconnect', () => {
+        if (pill) {
+          pill.className = 'ws-live-pill ws-disconnected';
+          if (txt) txt.textContent = 'WS: OFFLINE';
+        }
+      });
+      socketClient.on('threat:new', (alert) => {
+        if (!alert) return;
+        currentAlerts.unshift(alert);
+        if (currentAlerts.length > 50) currentAlerts.pop();
+        checkForNewMapEvents([alert]);
+        updateMitreMatrix(currentAlerts);
+        refreshStats();
+      });
+      socketClient.on('firewall:update', (data) => {
+        if (data && data.blockedIPs) {
+          currentBlockedSet = new Set(data.blockedIPs);
+          loadBlockedIPs();
+        }
+      });
+      socketClient.on('system:lockdown', (data) => {
+        if (data) {
+          isEmergencyLockdown = !!data.active;
+          const btn = document.getElementById('btnLockdown');
+          if (isEmergencyLockdown) {
+            if (btn) { btn.classList.add('active-lockdown'); btn.textContent = '🔒 LOCKDOWN ENGAGED (CLICK TO DISARM)'; }
+            updateHudDefenseStatus(1.0);
+          } else {
+            if (btn) { btn.classList.remove('active-lockdown'); btn.textContent = '⚠️ EMERGENCY LOCKDOWN (DEFCON 1)'; }
+            refreshStats();
+          }
+        }
+      });
+      socketClient.on('simulator:status', (data) => {
+        if (data) {
+          syncSimulatorStatus();
+        }
+      });
+    }
+  } catch (e) {
+    console.warn("Socket.IO client init fallback:", e);
+  }
+}
+
+// 2. JWT Authentication & Role-Based Access Control (RBAC)
+function updateAuthUI() {
+  const nameEl = document.getElementById('headerUsername');
+  const roleEl = document.getElementById('headerRole');
+  const avEl = document.getElementById('headerAvatar');
+  
+  const mName = document.getElementById('modalSessionName');
+  const mDesc = document.getElementById('modalSessionRoleDesc');
+  const mTag = document.getElementById('modalSessionTag');
+  const mAv = document.getElementById('modalSessionAvatar');
+  const mJwt = document.getElementById('modalJwtStatus');
+  const mTriage = document.getElementById('modalPermTriage');
+  const mFw = document.getElementById('modalPermFirewall');
+
+  if (!currentUser) {
+    if (nameEl) nameEl.textContent = 'Guest';
+    if (roleEl) { roleEl.textContent = 'NONE'; roleEl.className = 'role-tag role-viewer'; }
+    if (avEl) avEl.textContent = 'GU';
+    if (mName) mName.textContent = 'Unauthenticated';
+    if (mDesc) mDesc.textContent = 'Please log in to manage active defense controls.';
+    if (mTag) { mTag.textContent = 'GUEST'; mTag.className = 'role-tag role-viewer'; }
+    if (mAv) mAv.textContent = 'GU';
+    if (mJwt) mJwt.textContent = 'None';
+    if (mTriage) { mTriage.textContent = 'Read-Only'; mTriage.style.color = '#CBD5E1'; }
+    if (mFw) { mFw.textContent = 'Disabled'; mFw.style.color = '#FF5C7A'; }
+    enforceRBAC(null);
+    return;
+  }
+
+  const role = currentUser.role || 'viewer';
+  const uname = currentUser.username || 'user';
+  const initials = uname.substring(0, 2).toUpperCase();
+
+  if (nameEl) nameEl.textContent = uname;
+  if (avEl) avEl.textContent = initials;
+  if (mName) mName.textContent = currentUser.full_name || uname;
+  if (mAv) mAv.textContent = initials;
+  if (mJwt) mJwt.textContent = 'Active (Signed JWT)';
+
+  let roleClass = 'role-viewer';
+  let roleLabel = 'AUDITOR';
+  let roleDescText = 'Compliance Auditor · Read-Only Access & CSV Export';
+
+  if (role === 'admin') {
+    roleClass = 'role-admin';
+    roleLabel = 'ADMIN';
+    roleDescText = 'SOC Operations Director · Full Enterprise Control';
+    if (mTriage) { mTriage.textContent = 'Full Access'; mTriage.style.color = '#00D4FF'; }
+    if (mFw) { mFw.textContent = 'Full Access'; mFw.style.color = '#00D4FF'; }
+  } else if (role === 'analyst') {
+    roleClass = 'role-analyst';
+    roleLabel = 'ANALYST';
+    roleDescText = 'Senior Tier-2 Analyst · Active Triage & Threat Mitigation';
+    if (mTriage) { mTriage.textContent = 'Enabled'; mTriage.style.color = '#00D4FF'; }
+    if (mFw) { mFw.textContent = 'Enabled'; mFw.style.color = '#00D4FF'; }
+  } else {
+    if (mTriage) { mTriage.textContent = 'Read-Only'; mTriage.style.color = '#CBD5E1'; }
+    if (mFw) { mFw.textContent = 'Disabled'; mFw.style.color = '#FF5C7A'; }
+  }
+
+  if (roleEl) { roleEl.textContent = roleLabel; roleEl.className = `role-tag ${roleClass}`; }
+  if (mTag) { mTag.textContent = roleLabel; mTag.className = `role-tag ${roleClass}`; }
+  if (mDesc) mDesc.textContent = roleDescText;
+
+  // Highlight active quick-role button in modal
+  ['admin', 'analyst', 'auditor'].forEach(r => {
+    const b = document.getElementById(`btnRole${r.charAt(0).toUpperCase() + r.slice(1)}`);
+    if (b) {
+      if (uname.toLowerCase() === r || role === r) b.classList.add('active-role');
+      else b.classList.remove('active-role');
+    }
+  });
+
+  enforceRBAC(role);
+}
+
+function enforceRBAC(role) {
+  const isAuditorOrGuest = !role || role === 'viewer';
+  const blockBtn = document.getElementById('blockBtn');
+  const btnLockdown = document.getElementById('btnLockdown');
+  const btnReset = document.querySelector('.btn-reset-demo');
+  const btnBurst = document.querySelector('.btn-burst-attack');
+
+  if (isAuditorOrGuest) {
+    if (btnLockdown) { btnLockdown.disabled = true; btnLockdown.title = "Action requires Analyst or Admin role"; }
+    if (btnReset) { btnReset.disabled = true; btnReset.title = "Action requires Admin role"; }
+    if (btnBurst) { btnBurst.disabled = true; btnBurst.title = "Action requires Analyst or Admin role"; }
+  } else {
+    if (btnLockdown) { btnLockdown.disabled = false; btnLockdown.title = "DEFCON 1 Emergency Isolation"; }
+    if (btnReset) { btnReset.disabled = false; btnReset.title = "Reset demo alerts and blocklists"; }
+    if (btnBurst) { btnBurst.disabled = false; btnBurst.title = "Launch 6-packet SYN flood burst"; }
+  }
+}
+
+async function quickSwitchRole(username, password) {
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    if (res.ok && data.token) {
+      authToken = data.token;
+      currentUser = data.user;
+      localStorage.setItem('aegis_jwt_token', authToken);
+      localStorage.setItem('aegis_jwt_user', JSON.stringify(currentUser));
+      updateAuthUI();
+      closeAuthModal();
+      showToastNotification(`Authenticated as ${currentUser.full_name || currentUser.username} (${currentUser.role.toUpperCase()})`);
+    } else {
+      alert(data.error || "Authentication failed");
+    }
+  } catch (e) {
+    console.error("Login failed", e);
+  }
+}
+
+async function submitCustomLogin() {
+  const u = document.getElementById('authLoginUser').value.trim();
+  const p = document.getElementById('authLoginPass').value.trim();
+  const errEl = document.getElementById('authErrorMsg');
+  if (!u || !p) {
+    if (errEl) errEl.textContent = 'Please enter both username and password';
+    return;
+  }
+  if (errEl) errEl.textContent = '';
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: u, password: p })
+    });
+    const data = await res.json();
+    if (res.ok && data.token) {
+      authToken = data.token;
+      currentUser = data.user;
+      localStorage.setItem('aegis_jwt_token', authToken);
+      localStorage.setItem('aegis_jwt_user', JSON.stringify(currentUser));
+      updateAuthUI();
+      closeAuthModal();
+      showToastNotification(`Logged in as ${currentUser.username}`);
+    } else {
+      if (errEl) errEl.textContent = data.error || 'Invalid credentials';
+    }
+  } catch (err) {
+    if (errEl) errEl.textContent = 'Authentication service error';
+  }
+}
+
+function logoutSession() {
+  authToken = null;
+  currentUser = null;
+  localStorage.removeItem('aegis_jwt_token');
+  localStorage.removeItem('aegis_jwt_user');
+  updateAuthUI();
+  closeAuthModal();
+  showToastNotification('Logged out of session');
+}
+
+function openAuthModal() {
+  const m = document.getElementById('authModal');
+  if (m) m.style.display = 'flex';
+}
+function closeAuthModal() {
+  const m = document.getElementById('authModal');
+  if (m) m.style.display = 'none';
+}
+
+// 3. Persistent SQLite Historical Incident Database Explorer
+let histPage = 1;
+let histTotalPages = 1;
+
+function openHistoryModal() {
+  const m = document.getElementById('historyModal');
+  if (m) m.style.display = 'flex';
+  loadHistoryData(1);
+}
+function closeHistoryModal() {
+  const m = document.getElementById('historyModal');
+  if (m) m.style.display = 'none';
+}
+
+async function loadHistoryData(page = 1) {
+  histPage = page;
+  const search = document.getElementById('histSearchInput') ? document.getElementById('histSearchInput').value.trim() : '';
+  const type = document.getElementById('histTypeSelect') ? document.getElementById('histTypeSelect').value : '';
+  const sev = document.getElementById('histSeveritySelect') ? document.getElementById('histSeveritySelect').value : '';
+
+  const tbody = document.getElementById('historyTableBody');
+  if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px; color:var(--text-dim);">Querying SQLite incident archive...</td></tr>`;
+
+  try {
+    const params = new URLSearchParams({ page: histPage, limit: 10 });
+    if (search) params.append('search', search);
+    if (type) params.append('attack_type', type);
+    if (sev) params.append('severity', sev);
+
+    const res = await fetch(`${API_BASE}/api/history?${params.toString()}`, {
+      headers: getAuthHeaders()
+    });
+    const data = await res.json();
+
+    histTotalPages = data.totalPages || 1;
+    const pageCur = document.getElementById('histPageCurrent');
+    const pageInfo = document.getElementById('histPageInfo');
+    const btnPrev = document.getElementById('histBtnPrev');
+    const btnNext = document.getElementById('histBtnNext');
+
+    if (pageCur) pageCur.textContent = `Page ${data.page} of ${histTotalPages}`;
+    if (pageInfo) pageInfo.textContent = `Showing ${data.data ? data.data.length : 0} of ${data.total} recorded incidents`;
+    if (btnPrev) btnPrev.disabled = (data.page <= 1);
+    if (btnNext) btnNext.disabled = (data.page >= histTotalPages);
+
+    if (!data.data || data.data.length === 0) {
+      if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:24px; color:var(--text-dim);">No incidents found matching current filters.</td></tr>`;
+      return;
+    }
+
+    if (tbody) {
+      tbody.innerHTML = data.data.map(item => {
+        const isBlk = item.blocked || item.prediction === 'Blocked';
+        const isAtk = item.prediction === 'Attack';
+        const badgeCls = isBlk ? 'blocked' : (isAtk ? 'attack' : 'normal');
+        const badgeText = isBlk ? 'BLOCKED' : (isAtk ? 'ATTACK' : 'NORMAL');
+        const d = new Date(item.timestamp);
+        const timeStr = isNaN(d.getTime()) ? item.timestamp : d.toLocaleString();
+
+        let sevBadge = `<span style="color:#A86DFF; font-weight:700;">LOW</span>`;
+        if (item.severity === 'CRITICAL') sevBadge = `<span style="color:#FF2222; font-weight:700;">CRITICAL</span>`;
+        else if (item.severity === 'HIGH') sevBadge = `<span style="color:#FF5C7A; font-weight:700;">HIGH</span>`;
+        else if (item.severity === 'MEDIUM') sevBadge = `<span style="color:#FFB84D; font-weight:700;">MEDIUM</span>`;
+
+        return `<tr>
+          <td style="color:var(--safe); font-weight:700;">#${item.id}</td>
+          <td style="color:var(--text-dim); font-size:10px; white-space:nowrap;">${timeStr}</td>
+          <td style="font-weight:700; color:#00D4FF;">${item.source_ip || 'N/A'}</td>
+          <td><b>${item.attack_type || 'Unknown'}</b></td>
+          <td>${sevBadge}</td>
+          <td><span class="badge ${badgeCls}" style="font-size:9px; padding:2px 6px;">${badgeText}</span></td>
+          <td>${item.location || 'Global/Simulated'}</td>
+        </tr>`;
+      }).join('');
+    }
+  } catch (err) {
+    console.error("History query error", err);
+    if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px; color:#FF5C7A;">Failed retrieving incident history.</td></tr>`;
+  }
+}
+
+function applyHistoryFilters() {
+  loadHistoryData(1);
+}
+function resetHistoryFilters() {
+  if (document.getElementById('histSearchInput')) document.getElementById('histSearchInput').value = '';
+  if (document.getElementById('histTypeSelect')) document.getElementById('histTypeSelect').value = '';
+  if (document.getElementById('histSeveritySelect')) document.getElementById('histSeveritySelect').value = '';
+  loadHistoryData(1);
+}
+function changeHistoryPage(delta) {
+  const target = histPage + delta;
+  if (target >= 1 && target <= histTotalPages) {
+    loadHistoryData(target);
+  }
+}
+
+function exportHistoryCSV() {
+  window.open(`${API_BASE}/api/history/export-csv`, '_blank');
+}
+
+// 4. Full-Stack Initialization
+function initFullStack() {
+  initSocketIO();
+  if (!authToken || !currentUser) {
+    // Auto-authenticate as Admin on first visit for zero-friction College Viva Demo
+    quickSwitchRole('admin', 'admin123');
+  } else {
+    updateAuthUI();
+  }
+}
+
+// Initialize components
+initCharts();
+initRealisticMap();
+refreshAll();
+syncSimulatorStatus();
+initFullStack();
+setInterval(refreshAll, 1200);
+setInterval(syncSimulatorStatus, 1200);
+
+setTimeout(() => {
+  if (currentAlerts.length > 0) {
+    showReport(currentAlerts[0]);
+  }
+}, 600);
+
+/* ================= Professional Cyber Network Topology (Three.js) ================= */
+(function(){
+  const canvas = document.getElementById('orbital-bg');
+  if (!canvas) return;
+  const w = window.innerWidth, h = window.innerHeight;
+  const scene3 = new THREE.Scene();
+  scene3.fog = new THREE.FogExp2(0x070410, 0.007);
+
+  const camera = new THREE.PerspectiveCamera(52, w/h, 0.1, 1000);
+  camera.position.set(0, 3, 36);
+  camera.lookAt(0, 0, -4);
+
+  const renderer = new THREE.WebGLRenderer({canvas, antialias: true, alpha: true});
+  renderer.setSize(w, h);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+  // Ambient & Directional Lights
+  const ambLight = new THREE.AmbientLight(0x401f78, 2.0);
+  scene3.add(ambLight);
+
+  const purpleLight = new THREE.PointLight(0xA86DFF, 4.5, 120);
+  purpleLight.position.set(16, 18, 12);
+  scene3.add(purpleLight);
+
+  const cyanLight = new THREE.PointLight(0x00D4FF, 4.0, 120);
+  cyanLight.position.set(-16, -8, 12);
+  scene3.add(cyanLight);
+
+  // Central 3D Cyber Defense Holographic Core
+  const cyberGroup = new THREE.Group();
+  cyberGroup.position.set(0, 0, -4);
+  scene3.add(cyberGroup);
+
+  // 1. Inner Cyber Wireframe Geosphere
+  const sphereGeo = new THREE.IcosahedronGeometry(11.5, 2);
+  const sphereMat = new THREE.MeshBasicMaterial({
+    color: 0x7742DC,
+    wireframe: true,
+    transparent: true,
+    opacity: 0.45
+  });
+  const cyberGlobe = new THREE.Mesh(sphereGeo, sphereMat);
+  cyberGroup.add(cyberGlobe);
+
+  // 2. Glowing Nodes on Globe Vertices
+  const vPositions = sphereGeo.attributes.position;
+  const nodeGeo = new THREE.BufferGeometry();
+  nodeGeo.setAttribute('position', vPositions);
+  const nodeMat = new THREE.PointsMaterial({
+    color: 0x00D4FF,
+    size: 2.2,
+    transparent: true,
+    opacity: 0.9
+  });
+  const nodePoints = new THREE.Points(nodeGeo, nodeMat);
+  cyberGroup.add(nodePoints);
+
+  // 3. Concentric 3D Tactical Defense Rings
+  function createCyberRing(radius, color, tiltX, tiltY) {
+    const pts = [];
+    const segs = 100;
+    for (let i = 0; i <= segs; i++) {
+      const theta = (i / segs) * Math.PI * 2;
+      pts.push(new THREE.Vector3(Math.cos(theta) * radius, 0, Math.sin(theta) * radius));
+    }
+    const rGeo = new THREE.BufferGeometry().setFromPoints(pts);
+    const rMat = new THREE.LineBasicMaterial({
+      color: color,
+      transparent: true,
+      opacity: 0.55
+    });
+    const ring = new THREE.LineLoop(rGeo, rMat);
+    ring.rotation.x = tiltX;
+    ring.rotation.y = tiltY;
+    return ring;
+  }
+
+  const ring1 = createCyberRing(16.5, 0x00D4FF, 0.42, 0.18);
+  const ring2 = createCyberRing(21.5, 0xA86DFF, -0.36, -0.35);
+  const ring3 = createCyberRing(26.5, 0x7FE3FF, 0.55, -0.22);
+  cyberGroup.add(ring1);
+  cyberGroup.add(ring2);
+  cyberGroup.add(ring3);
+
+  // Orbiting Defense Nodes
+  const satGeo = new THREE.SphereGeometry(0.65, 12, 12);
+  const sat1 = new THREE.Mesh(satGeo, new THREE.MeshBasicMaterial({ color: 0x00D4FF }));
+  const sat2 = new THREE.Mesh(satGeo, new THREE.MeshBasicMaterial({ color: 0xFF5C7A }));
+  const sat3 = new THREE.Mesh(satGeo, new THREE.MeshBasicMaterial({ color: 0xA86DFF }));
+  cyberGroup.add(sat1);
+  cyberGroup.add(sat2);
+  cyberGroup.add(sat3);
+
+  // 4. Undulating 3D Cyber Wave Grid Floor
+  const gridW = 150, gridD = 150, gridDivs = 32;
+  const terrainGeo = new THREE.PlaneGeometry(gridW, gridD, gridDivs, gridDivs);
+  terrainGeo.rotateX(-Math.PI / 2);
+  const terrainMat = new THREE.MeshBasicMaterial({
+    color: 0x512C88,
+    wireframe: true,
+    transparent: true,
+    opacity: 0.28
+  });
+  const terrain = new THREE.Mesh(terrainGeo, terrainMat);
+  terrain.position.y = -15;
+  scene3.add(terrain);
+
+  const tPos = terrainGeo.attributes.position;
+  const originalY = new Float32Array(tPos.count);
+  for (let i = 0; i < tPos.count; i++) {
+    originalY[i] = tPos.getY(i);
+  }
+
+  // 5. Floating Cyber Data Particles
+  const partCount = 420;
+  const partGeo = new THREE.BufferGeometry();
+  const partPos = new Float32Array(partCount * 3);
+  for (let i = 0; i < partCount; i++) {
+    partPos[i * 3] = (Math.random() - 0.5) * 110;
+    partPos[i * 3 + 1] = (Math.random() - 0.5) * 70;
+    partPos[i * 3 + 2] = (Math.random() - 0.5) * 60;
+  }
+  partGeo.setAttribute('position', new THREE.BufferAttribute(partPos, 3));
+  const partMat = new THREE.PointsMaterial({
+    color: 0x9D72FF,
+    size: 1.6,
+    transparent: true,
+    opacity: 0.7
+  });
+  const cyberDust = new THREE.Points(partGeo, partMat);
+  scene3.add(cyberDust);
+
+  // Smooth Mouse Parallax
+  let targetMouseX = 0, targetMouseY = 0;
+  let curMouseX = 0, curMouseY = 0;
+  document.addEventListener('mousemove', (e) => {
+    targetMouseX = (e.clientX / window.innerWidth - 0.5) * 5;
+    targetMouseY = (e.clientY / window.innerHeight - 0.5) * 3;
+  });
+
+  let t = 0;
+  function animate() {
+    requestAnimationFrame(animate);
+    t += 0.015;
+
+    // Camera follow mouse with smooth easing
+    curMouseX += (targetMouseX - curMouseX) * 0.04;
+    curMouseY += (targetMouseY - curMouseY) * 0.04;
+    camera.position.x = curMouseX;
+    camera.position.y = 3 - curMouseY;
+    camera.lookAt(0, 0, -4);
+
+    // 3D Cyber Globe rotation
+    cyberGlobe.rotation.y += 0.0035;
+    cyberGlobe.rotation.x += 0.0015;
+    nodePoints.rotation.y += 0.0035;
+    nodePoints.rotation.x += 0.0015;
+
+    // Defense Rings counter-rotations
+    ring1.rotation.z += 0.0045;
+    ring2.rotation.z -= 0.0038;
+    ring3.rotation.z += 0.0032;
+
+    // Orbiting Defense Nodes
+    const a1 = t * 0.75;
+    sat1.position.set(Math.cos(a1) * 16.5, Math.sin(a1) * 3, Math.sin(a1) * 16.5);
+    const a2 = -t * 0.55 + 1.2;
+    sat2.position.set(Math.cos(a2) * 21.5, Math.sin(a2) * -3.5, Math.sin(a2) * 21.5);
+    const a3 = t * 0.4 + 2.5;
+    sat3.position.set(Math.cos(a3) * 26.5, Math.sin(a3) * 4.5, Math.sin(a3) * 26.5);
+
+    // Undulating Cyber Wave Grid
+    for (let i = 0; i < tPos.count; i++) {
+      const x = tPos.getX(i);
+      const z = tPos.getZ(i);
+      const wave = Math.sin(x * 0.09 + t * 0.8) * Math.cos(z * 0.09 + t * 0.8) * 1.5;
+      tPos.setY(i, originalY[i] + wave);
+    }
+    tPos.needsUpdate = true;
+
+    // Particle field slow rotation
+    cyberDust.rotation.y = t * 0.015;
+
+    renderer.render(scene3, camera);
+  }
+  animate();
+
+  window.addEventListener('resize', () => {
+    const nw = window.innerWidth, nh = window.innerHeight;
+    camera.aspect = nw / nh;
+    camera.updateProjectionMatrix();
+    renderer.setSize(nw, nh);
+  });
+})();
+</script>
+
+</body>
+</html>

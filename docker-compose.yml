@@ -1,0 +1,24 @@
+version: "3.9"
+
+services:
+  ml-service:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: nids-ml-service
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: nids-backend
+    ports:
+      - "4000:4000"
+    environment:
+      - ML_SERVICE_URL=http://ml-service:8000
+    depends_on:
+      - ml-service
+    restart: unless-stopped
