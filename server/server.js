@@ -55,7 +55,13 @@ const IP_LOCATIONS = {
   "203.0.113.44": { city: "Bucharest", country: "Romania" },
   "192.0.2.88": { city: "Jakarta", country: "Indonesia" },
   "198.51.100.99": { city: "Frankfurt", country: "Germany" },
-  "203.0.113.111": { city: "Tokyo", country: "Japan" }
+  "203.0.113.111": { city: "Tokyo", country: "Japan" },
+  "185.220.101.5": { city: "Amsterdam", country: "Netherlands" },
+  "194.26.29.112": { city: "Saint Petersburg", country: "Russia" },
+  "45.154.255.89": { city: "Shenzhen", country: "China" },
+  "185.193.88.42": { city: "London", country: "UK" },
+  "104.244.42.1": { city: "Sydney", country: "Australia" },
+  "45.33.32.156": { city: "New York", country: "USA" }
 };
 const IP_LIST = Object.keys(IP_LOCATIONS);
 
@@ -468,8 +474,21 @@ async function runSimulatorTick(forcedIP = null, forceAttack = null) {
   }
 
   const row = pool[Math.floor(Math.random() * pool.length)];
-  const ip = forcedIP || IP_LIST[Math.floor(Math.random() * IP_LIST.length)];
-  const loc = IP_LOCATIONS[ip] ? `${IP_LOCATIONS[ip].city}, ${IP_LOCATIONS[ip].country}` : "Simulated Origin";
+  let ip = forcedIP;
+  if (!ip) {
+    if (!autoDefenseEnabled) {
+      // Manual Defense Mode: prioritize unblocked IPs so attacks are not dropped by gateway!
+      const unblocked = IP_LIST.filter(candidate => !blockedIPs.has(candidate));
+      if (unblocked.length > 0) {
+        ip = unblocked[Math.floor(Math.random() * unblocked.length)];
+      } else {
+        ip = `185.220.101.${Math.floor(Math.random() * 200) + 10}`;
+      }
+    } else {
+      ip = IP_LIST[Math.floor(Math.random() * IP_LIST.length)];
+    }
+  }
+  const loc = IP_LOCATIONS[ip] ? `${IP_LOCATIONS[ip].city}, ${IP_LOCATIONS[ip].country}` : "Threat Origin";
 
   const payload = { ...row, source_ip: ip, location: loc };
   simStats.totalSent++;
@@ -511,18 +530,38 @@ app.post("/api/simulator/stop", (req, res) => {
   res.json({ isRunning: isSimulating, autoDefense: autoDefenseEnabled });
 });
 
-app.post("/api/simulator/toggle-autodefense", (req, res) => {
-  if (typeof req.body.enabled === "boolean") {
+app.post("/api/simulator/toggle-autodefense", optionalToken, (req, res) => {
+  if (typeof req.body?.enabled === "boolean") {
     autoDefenseEnabled = req.body.enabled;
   } else {
     autoDefenseEnabled = !autoDefenseEnabled;
   }
+
+  // When switching to MANUAL defense mode, clear existing automated firewall blocks so attacks can come through as live 'Attack'!
+  if (!autoDefenseEnabled) {
+    blockedIPs.clear();
+    db.clearBlockedIPs();
+    io.emit("firewall:update", { blockedIPs: [] });
+    db.addAuditLog(req.user?.username || "SOC Analyst", "AUTODEFENSE_MANUAL", "Auto-Defense disabled. Active blocks cleared for manual triage.");
+  } else {
+    db.addAuditLog(req.user?.username || "SOC Analyst", "AUTODEFENSE_ACTIVE", "Auto-Defense enabled. Automated mitigation active.");
+  }
+
   io.emit("simulator:status", { isRunning: isSimulating, autoDefense: autoDefenseEnabled, speed: simSpeedMs });
-  res.json({ autoDefense: autoDefenseEnabled });
+  io.emit("system:stats", getAggregatedStats());
+  res.json({ autoDefense: autoDefenseEnabled, blockedCount: blockedIPs.size });
 });
 
 app.post("/api/simulator/burst", async (req, res) => {
-  const burstIP = req.body.ip || "203.0.113.7";
+  let burstIP = req.body.ip;
+  if (!burstIP) {
+    if (!autoDefenseEnabled) {
+      const unblocked = IP_LIST.filter(candidate => !blockedIPs.has(candidate));
+      burstIP = unblocked.length > 0 ? unblocked[0] : "203.0.113.7";
+    } else {
+      burstIP = "203.0.113.7";
+    }
+  }
   const count = parseInt(req.body.count) || 6;
   const results = [];
   for (let i = 0; i < count; i++) {

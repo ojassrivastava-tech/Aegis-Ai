@@ -2767,7 +2767,17 @@ async function toggleAutoDefense() {
       alert("Permission denied: Auto-defense control requires Analyst or Admin role.");
       return;
     }
+    const data = await res.json();
+    autoDefenseActive = data.autoDefense;
+    if (autoDefenseActive) {
+      showToastNotification("🛡️ AUTO-DEFENSE: ACTIVE (Incoming attacks automatically blocked)");
+    } else {
+      showToastNotification("⚠️ AUTO-DEFENSE: MANUAL (Attacks arrive live in feed. Click [BLOCK SOURCE] to defend)");
+    }
     await syncSimulatorStatus();
+    await loadBlockedIPs();
+    await refreshFeed();
+    await refreshStats();
   } catch (err) {
     console.error("Failed toggling auto defense", err);
   }
@@ -2775,12 +2785,27 @@ async function toggleAutoDefense() {
 
 async function triggerTargetedAttackBurst() {
   try {
-    const isBlocked = currentBlockedSet.has('203.0.113.7');
-    animateThreatArc(CITY_COORDS["Moscow, Russia"], isBlocked, "Moscow, Russia");
+    let burstIP = '203.0.113.7';
+    let burstCity = "Moscow, Russia";
+    if (!autoDefenseActive && currentBlockedSet.has(burstIP)) {
+      const candidates = [
+        { ip: '198.51.100.4', city: 'Beijing, China' },
+        { ip: '192.0.2.15', city: 'Lagos, Nigeria' },
+        { ip: '198.51.100.22', city: 'Sao Paulo, Brazil' },
+        { ip: '203.0.113.44', city: 'Bucharest, Romania' }
+      ];
+      const unblocked = candidates.find(c => !currentBlockedSet.has(c.ip));
+      if (unblocked) {
+        burstIP = unblocked.ip;
+        burstCity = unblocked.city;
+      }
+    }
+    const isBlocked = currentBlockedSet.has(burstIP);
+    animateThreatArc(CITY_COORDS[burstCity] || CITY_COORDS["Moscow, Russia"], isBlocked, burstCity);
     const res = await fetch(`${API_BASE}/api/simulator/burst`, {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ ip: '203.0.113.7', count: 6 })
+      body: JSON.stringify({ ip: burstIP, count: 6 })
     });
     if (!res.ok && res.status === 403) {
       alert("Permission denied: Attack simulation requires Analyst or Admin role.");
