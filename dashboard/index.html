@@ -128,13 +128,68 @@
     z-index: 2;
   }
   header {
-    padding: 18px 32px;
+    padding: 14px 32px;
     border-bottom: 1px solid var(--border);
-    display: flex; justify-content: space-between; align-items: center;
-    background: rgba(13, 9, 23, 0.85);
-    backdrop-filter: blur(12px);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--header-bg, rgba(9, 11, 18, 0.90));
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    position: relative;
+    z-index: 100;
   }
-  .brand { display: flex; align-items: center; gap: 10px; }
+  header::after {
+    content: "";
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, var(--border-glow, rgba(212, 175, 55, 0.55)) 50%, transparent 100%);
+    pointer-events: none;
+    box-shadow: 0 1px 8px var(--border-glow, rgba(212, 175, 55, 0.4));
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .brand-shield-wrap {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(168, 109, 255, 0.15));
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--cyan);
+    flex-shrink: 0;
+    box-shadow: 0 0 12px rgba(0, 212, 255, 0.2);
+  }
+  .brand-title-text {
+    font-size: 19px;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: 0.6px;
+    white-space: nowrap;
+  }
+  .brand-subtitle {
+    font-size: 10px;
+    margin-top: 2px;
+    color: var(--text-dim);
+    letter-spacing: 0.8px;
+    white-space: nowrap;
+  }
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+  }
   h1 { font-size: 21px; font-weight: 700; margin: 0; }
   h1 .ai { color: var(--safe); font-weight: 500; }
   .sub { color: var(--text-dim); font-size: 11px; margin-top: 4px; letter-spacing: 0.5px; }
@@ -176,6 +231,8 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    white-space: nowrap;
+    flex-shrink: 0;
     transition: all 0.2s ease;
     box-shadow: 0 4px 10px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.1);
   }
@@ -191,7 +248,7 @@
 
   /* Futuristic Holographic Cyber Sentinel Reactor Badge */
   .cyber-reactor-badge {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 10px;
     padding: 5px 12px 5px 8px;
@@ -201,8 +258,10 @@
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
     position: relative;
     overflow: hidden;
-    cursor: default;
+    cursor: pointer;
     transition: all 0.3s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
   .cyber-reactor-badge::after {
     content: "";
@@ -1059,6 +1118,8 @@
     display: inline-flex;
     align-items: center;
     gap: 7px;
+    white-space: nowrap;
+    flex-shrink: 0;
     transition: all 0.25s ease;
   }
   .btn-theme-toggle:hover {
@@ -1217,15 +1278,17 @@
   }
 
   .ws-live-pill {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 7px;
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.6px;
-    padding: 5px 10px;
+    padding: 6px 11px;
     border-radius: 12px;
     background: rgba(15, 11, 26, 0.85);
+    white-space: nowrap;
+    flex-shrink: 0;
     border: 1px solid rgba(168, 109, 255, 0.25);
     transition: all 0.3s ease;
   }
@@ -1773,9 +1836,29 @@
   /* ================= Complete Mobile & Tablet Responsive Engine ================= */
   @media (max-width: 1100px) {
     .mitre-grid { grid-template-columns: repeat(3, 1fr); }
+    .header-actions { gap: 8px; }
+    .brand-subtitle { font-size: 9px !important; letter-spacing: 0.5px !important; }
+    .btn-theme-toggle, .btn-header-fullstack, .ws-live-pill {
+      font-size: 10.5px !important;
+      padding: 6px 10px !important;
+    }
   }
 
   @media (max-width: 900px) {
+    header {
+      padding: 12px 18px;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 8px;
+      flex-wrap: wrap;
+      width: 100%;
+    }
     main { padding: 18px 18px 70px; }
     .hero-row { grid-template-columns: repeat(2, 1fr); gap: 12px; }
     .gauge-card { grid-column: span 2; }
@@ -2083,8 +2166,8 @@
       INCIDENT ARCHIVE
     </button>
 
-    <!-- Futuristic Holographic Cyber Sentinel Reactor Animation -->
-    <div class="cyber-reactor-badge" title="AEGIS Quantum Neural Core · Active Sentinel Matrix">
+    <!-- Futuristic Holographic Cyber Sentinel Reactor Animation / Operator Badge -->
+    <div class="cyber-reactor-badge" id="userProfileBadge" onclick="openAuthModal()" title="AEGIS Quantum Neural Core · Operator Identity (Click to Switch Role / Authenticate)">
       <div class="reactor-core-wrap">
         <div class="reactor-ring outer-ring"></div>
         <div class="reactor-ring middle-hex"></div>
@@ -2095,9 +2178,10 @@
       <div class="reactor-meta">
         <div class="reactor-title">
           <span class="reactor-pulse-dot"></span>
-          <span>NEURAL CORE</span>
+          <span id="headerUsername">OPERATOR</span>
+          <span id="headerAvatar" style="display:none;">OP</span>
         </div>
-        <div class="reactor-subtitle">QUANTUM ACTIVE</div>
+        <div class="reactor-subtitle" id="headerRole">QUANTUM ACTIVE</div>
       </div>
     </div>
   </div>

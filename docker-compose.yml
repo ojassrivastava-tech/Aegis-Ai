@@ -17,6 +17,8 @@ services:
     container_name: nids-backend
     ports:
       - "4000:4000"
+    volumes:
+      - ./dashboard:/app/dashboard
     environment:
       - ML_SERVICE_URL=http://ml-service:8000
       - OLLAMA_HOST=http://host.docker.internal:11434
