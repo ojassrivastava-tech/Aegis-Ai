@@ -5,15 +5,65 @@
 <title>AEGIS AI — Threat Intelligence & Active Defense</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/leaflet.css" />
 <script src="/leaflet.js"></script>
 <script src="/chart.umd.min.js"></script>
 <script src="/three.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <style>
-  :root {
+  :root, [data-theme="luxury"] {
+    --bg: #05060A;
+    --bg-html: #030406;
+    --panel: rgba(13, 16, 24, 0.84);
+    --panel-solid: rgba(17, 21, 31, 0.96);
+    --panel-2: rgba(23, 28, 42, 0.90);
+    --border: rgba(212, 175, 55, 0.24); /* 24K Polished Champagne Gold */
+    --border-glow: rgba(230, 201, 116, 0.55);
+    --text: #FBFBFC;
+    --text-dim: #9FA7B6;
+    --safe: #00F5A0; /* Imperial Jade Cyber Green */
+    --safe-glow: rgba(0, 245, 160, 0.42);
+    --safe-dim: rgba(0, 245, 160, 0.14);
+    --alert: #FF2E56; /* Royal Crimson Threat */
+    --alert-glow: rgba(255, 46, 86, 0.50);
+    --alert-dim: rgba(255, 46, 86, 0.16);
+    --blocked: #858D9C;
+    --cyan: #E2C974; /* Champagne Gold Highlight */
+    --gold: #D4AF37; /* 24K Royal Gold */
+    --gold-light: #FFF0B8;
+    --gold-dim: rgba(212, 175, 55, 0.15);
+    --gold-gradient: linear-gradient(135deg, #FFF0B8 0%, #D4AF37 50%, #9C781A 100%);
+    --accent-primary: #D4AF37;
+    --header-bg: rgba(9, 11, 18, 0.90);
+  }
+
+  [data-theme="enterprise"] {
+    --bg: #070B14;
+    --bg-html: #060911;
+    --panel: rgba(11, 17, 30, 0.82);
+    --panel-solid: rgba(13, 22, 38, 0.94);
+    --panel-2: rgba(18, 29, 48, 0.88);
+    --border: rgba(56, 139, 253, 0.20);
+    --border-glow: rgba(0, 212, 255, 0.35);
+    --text: #F0F6FC;
+    --text-dim: #8B949E;
+    --safe: #00E5A3; /* Crisp Emerald Cyber Green (CrowdStrike / NIST Standard) */
+    --safe-glow: rgba(0, 229, 163, 0.35);
+    --safe-dim: rgba(0, 229, 163, 0.14);
+    --alert: #FF3B5C; /* Vivid Crimson Red */
+    --alert-glow: rgba(255, 59, 92, 0.45);
+    --alert-dim: rgba(255, 59, 92, 0.16);
+    --blocked: #6E7681;
+    --cyan: #00D4FF;
+    --gold: #F59E0B;
+    --accent-primary: #00D4FF;
+    --header-bg: rgba(9, 14, 25, 0.90);
+  }
+
+  [data-theme="cyberpunk"] {
     --bg: #080512;
+    --bg-html: #070410;
     --panel: rgba(15, 11, 26, 0.78);
     --panel-solid: rgba(21, 15, 36, 0.92);
     --panel-2: rgba(26, 18, 44, 0.85);
@@ -21,19 +71,24 @@
     --border-glow: rgba(168, 109, 255, 0.45);
     --text: #F1EDFA;
     --text-dim: #A199B5;
-    --safe: #A86DFF;
-    --safe-glow: rgba(168,109,255,0.4);
+    --safe: #A86DFF; /* Neon Cyberpunk Violet */
+    --safe-glow: rgba(168, 109, 255, 0.4);
+    --safe-dim: rgba(168, 109, 255, 0.14);
     --alert: #FF5C7A;
-    --alert-glow: rgba(255,92,122,0.45);
-    --alert-dim: rgba(255,92,122,0.16);
+    --alert-glow: rgba(255, 92, 122, 0.45);
+    --alert-dim: rgba(255, 92, 122, 0.16);
     --blocked: #8A859E;
     --cyan: #00D4FF;
     --gold: #FFB84D;
+    --accent-primary: #A86DFF;
+    --header-bg: rgba(13, 9, 23, 0.85);
   }
+
   * { box-sizing: border-box; }
   html {
-    background: #070410;
+    background: var(--bg-html, #060911);
     min-height: 100vh;
+    transition: background 0.3s ease;
   }
   body {
     margin: 0;
@@ -97,11 +152,12 @@
     transition: border-color 0.2s ease;
   }
   .glass:hover {
-    border-color: rgba(168, 109, 255, 0.26);
+    border-color: var(--border-glow);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.55), 0 0 16px var(--gold-dim, rgba(212,175,55,0.12));
   }
   .glass::before {
     content: ""; position: absolute; top:0; left:0; right:0; height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(168,109,255,0.35), transparent);
+    background: linear-gradient(90deg, transparent, var(--border-glow), transparent);
     z-index: 3; pointer-events: none;
   }
 
@@ -561,7 +617,7 @@
   .alert-row:hover { background: var(--panel-2); }
   .badge { font-size: 10px; padding: 4px 8px; border-radius: 5px; font-weight: 700; letter-spacing: 0.5px; white-space: nowrap; }
   .badge.attack { background: var(--alert-dim); color: var(--alert); box-shadow: 0 0 10px rgba(255,92,122,0.3); animation: badgepulse 1.6s ease-in-out infinite; }
-  .badge.normal { background: rgba(168,109,255,0.12); color: var(--safe); }
+  .badge.normal { background: var(--safe-dim); color: var(--safe); box-shadow: 0 0 8px var(--safe-glow); }
   .badge.blocked { background: rgba(122,122,140,0.18); color: var(--blocked); }
   @keyframes badgepulse { 0%,100%{box-shadow:0 0 6px rgba(255,92,122,0.3);} 50%{box-shadow:0 0 16px rgba(255,92,122,0.6);} }
   
@@ -989,6 +1045,176 @@
     box-shadow: 0 0 16px rgba(0, 212, 255, 0.35);
     transform: translateY(-1px);
   }
+  .btn-theme-toggle {
+    background: linear-gradient(180deg, rgba(56, 139, 253, 0.16) 0%, rgba(13, 22, 38, 0.65) 100%);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    transition: all 0.25s ease;
+  }
+  .btn-theme-toggle:hover {
+    border-color: var(--cyan);
+    color: var(--cyan);
+    box-shadow: 0 0 16px rgba(0, 212, 255, 0.35);
+    transform: translateY(-1px);
+  }
+  [data-theme="luxury"] .btn-theme-toggle {
+    background: linear-gradient(180deg, rgba(212, 175, 55, 0.20) 0%, rgba(18, 15, 10, 0.85) 100%);
+    border-color: rgba(212, 175, 55, 0.40);
+    color: #FFF2C6;
+  }
+  [data-theme="luxury"] .btn-theme-toggle:hover {
+    border-color: #D4AF37;
+    color: #FFE68C;
+    box-shadow: 0 0 18px rgba(212, 175, 55, 0.50);
+  }
+
+  [data-theme="cyberpunk"] .btn-theme-toggle {
+    background: linear-gradient(180deg, rgba(168, 109, 255, 0.18) 0%, rgba(21, 15, 36, 0.65) 100%);
+  }
+
+  /* Luxury Cyber Theme Specific Polish */
+  [data-theme="luxury"] .brand-shield-wrap {
+    background: linear-gradient(135deg, rgba(212, 175, 55, 0.28), rgba(0, 245, 160, 0.15));
+    border-color: rgba(212, 175, 55, 0.55);
+    box-shadow: 0 0 18px rgba(212, 175, 55, 0.35);
+    color: #D4AF37;
+  }
+  [data-theme="luxury"] .brand-title-text {
+    background: linear-gradient(135deg, #FFF8DC 0%, #E6CA65 45%, #D4AF37 75%, #A68022 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  [data-theme="luxury"] .cyber-reactor-badge {
+    background: linear-gradient(135deg, rgba(24, 19, 12, 0.94) 0%, rgba(12, 10, 7, 0.98) 100%);
+    border: 1px solid rgba(212, 175, 55, 0.45);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 235, 175, 0.2);
+  }
+  [data-theme="luxury"] .cyber-reactor-badge::after {
+    background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.30), transparent);
+  }
+  [data-theme="luxury"] .reactor-ring.outer-ring {
+    border-color: rgba(212, 175, 55, 0.95);
+    box-shadow: 0 0 10px rgba(212, 175, 55, 0.4);
+  }
+  [data-theme="luxury"] .reactor-ring.middle-hex {
+    border-color: rgba(0, 245, 160, 0.85);
+  }
+  [data-theme="luxury"] .reactor-center-node {
+    background: radial-gradient(circle, #FFFFFF 0%, #D4AF37 55%, #00F5A0 100%);
+    box-shadow: 0 0 10px #D4AF37, 0 0 18px rgba(212, 175, 55, 0.8);
+  }
+  [data-theme="luxury"] .reactor-orbit-particle.p1 {
+    background: #FFD700;
+    box-shadow: 0 0 8px #FFD700;
+  }
+  [data-theme="luxury"] .reactor-orbit-particle.p2 {
+    background: #00F5A0;
+    box-shadow: 0 0 8px #00F5A0;
+  }
+  [data-theme="luxury"] .reactor-pulse-dot {
+    background: #D4AF37;
+    box-shadow: 0 0 8px #D4AF37;
+  }
+  [data-theme="luxury"] .reactor-subtitle {
+    color: #E2C974;
+  }
+  [data-theme="luxury"] .btn-header-fullstack {
+    background: linear-gradient(180deg, rgba(28, 23, 16, 0.92) 0%, rgba(14, 12, 9, 0.98) 100%);
+    border: 1px solid rgba(212, 175, 55, 0.35);
+    border-top: 1px solid rgba(255, 235, 175, 0.3);
+    color: #F8F4E8;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 235, 175, 0.15);
+  }
+  [data-theme="luxury"] .btn-header-fullstack:hover {
+    border-color: #D4AF37;
+    color: #FFE68C;
+    box-shadow: 0 0 16px rgba(212, 175, 55, 0.45);
+  }
+  [data-theme="luxury"] .ws-live-pill {
+    background: rgba(212, 175, 55, 0.10);
+    border-color: rgba(212, 175, 55, 0.35);
+    color: #E2C974;
+  }
+  [data-theme="luxury"] .ws-live-pill.ws-connected {
+    border-color: rgba(212, 175, 55, 0.55);
+    color: #FFE68C;
+    box-shadow: 0 0 12px rgba(212, 175, 55, 0.25);
+  }
+  [data-theme="luxury"] .ws-live-pill.ws-connected .ws-dot {
+    background: #00F5A0;
+    box-shadow: 0 0 8px #00F5A0;
+  }
+  [data-theme="luxury"] .stat-card {
+    background: linear-gradient(145deg, rgba(23, 19, 14, 0.88) 0%, rgba(13, 11, 8, 0.96) 100%);
+    border: 1px solid rgba(212, 175, 55, 0.26);
+    border-top: 1.5px solid rgba(255, 235, 175, 0.25);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 235, 175, 0.15);
+  }
+  [data-theme="luxury"] .stat-card:hover {
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.75), 0 0 20px rgba(212, 175, 55, 0.28);
+    border-color: rgba(212, 175, 55, 0.45);
+  }
+  [data-theme="luxury"] .mitre-card {
+    background: rgba(18, 15, 12, 0.78);
+    border: 1px solid rgba(212, 175, 55, 0.16);
+  }
+  [data-theme="luxury"] .mitre-card:hover {
+    border-color: #D4AF37;
+    box-shadow: 0 6px 20px rgba(212, 175, 55, 0.28);
+  }
+  [data-theme="luxury"] .copilot-floating-btn {
+    background: linear-gradient(135deg, rgba(28, 23, 14, 0.96) 0%, rgba(14, 11, 8, 0.98) 100%);
+    border-color: rgba(212, 175, 55, 0.55);
+    color: #FFF3D1;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.7), 0 0 20px rgba(212, 175, 55, 0.35);
+  }
+  [data-theme="luxury"] .copilot-floating-btn:hover {
+    border-color: #FFE68C;
+    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.8), 0 0 28px rgba(212, 175, 55, 0.55);
+  }
+  [data-theme="luxury"] .copilot-window {
+    background: linear-gradient(180deg, rgba(18, 15, 12, 0.97) 0%, rgba(10, 8, 6, 0.99) 100%);
+    border-color: rgba(212, 175, 55, 0.38);
+    box-shadow: 0 20px 54px rgba(0, 0, 0, 0.85), 0 0 30px rgba(212, 175, 55, 0.25);
+  }
+  [data-theme="luxury"] .copilot-header {
+    background: rgba(26, 21, 15, 0.94);
+    border-bottom: 1px solid rgba(212, 175, 55, 0.25);
+  }
+  [data-theme="luxury"] .copilot-badge-icon {
+    background: linear-gradient(135deg, rgba(212, 175, 55, 0.25), rgba(0, 245, 160, 0.2));
+    border-color: rgba(212, 175, 55, 0.45);
+  }
+  [data-theme="luxury"] .copilot-pill-btn {
+    background: rgba(212, 175, 55, 0.14);
+    border-color: rgba(212, 175, 55, 0.4);
+    color: #FFE68C;
+  }
+  [data-theme="luxury"] .copilot-pill-btn.online {
+    background: rgba(0, 245, 160, 0.18);
+    border-color: #00F5A0;
+    color: #00F5A0;
+    box-shadow: 0 0 10px rgba(0, 245, 160, 0.4);
+  }
+  [data-theme="luxury"] .history-table-wrap {
+    border-color: rgba(212, 175, 55, 0.25);
+    background: #09080C;
+  }
+  [data-theme="luxury"] .history-table th {
+    background: #14110E;
+    color: #E2C974;
+    border-bottom-color: rgba(212, 175, 55, 0.35);
+  }
 
   .ws-live-pill {
     display: flex;
@@ -1227,6 +1453,323 @@
     margin-top: 10px;
   }
 
+  /* ================= AEGIS AI Copilot Cyber Window & Launcher ================= */
+  .copilot-floating-btn {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 18px;
+    background: linear-gradient(135deg, rgba(26, 17, 48, 0.95) 0%, rgba(13, 9, 24, 0.98) 100%);
+    border: 1.5px solid rgba(0, 212, 255, 0.55);
+    border-radius: 28px;
+    color: #F1EDFA;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    cursor: pointer;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6), 0 0 16px rgba(0, 212, 255, 0.35);
+    transition: all 0.25s ease;
+  }
+  .copilot-floating-btn:hover {
+    border-color: #00D4FF;
+    box-shadow: 0 8px 30px rgba(0, 212, 255, 0.55), inset 0 0 10px rgba(0, 212, 255, 0.25);
+    transform: translateY(-2px);
+  }
+  .copilot-btn-icon {
+    font-size: 16px;
+    animation: copilotBotHover 2.4s ease-in-out infinite alternate;
+  }
+  @keyframes copilotBotHover {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-3px); }
+  }
+  .copilot-online-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #00D4FF;
+    box-shadow: 0 0 8px #00D4FF;
+    animation: copilotDotPulse 1.6s infinite;
+  }
+  @keyframes copilotDotPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  /* Copilot Drawer Window */
+  .copilot-window {
+    position: fixed;
+    bottom: 84px;
+    right: 24px;
+    width: 440px;
+    max-width: calc(100vw - 32px);
+    height: 560px;
+    max-height: calc(100vh - 110px);
+    background: linear-gradient(180deg, rgba(17, 11, 30, 0.96) 0%, rgba(9, 6, 18, 0.98) 100%);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(0, 212, 255, 0.4);
+    border-radius: 12px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.8), 0 0 24px rgba(0, 212, 255, 0.2);
+    display: flex;
+    flex-direction: column;
+    z-index: 1001;
+    overflow: hidden;
+    transform: translateY(20px) scale(0.97);
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .copilot-window.active {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .copilot-header {
+    padding: 12px 16px;
+    background: rgba(24, 16, 42, 0.9);
+    border-bottom: 1px solid rgba(168, 109, 255, 0.25);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .copilot-title-cluster {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+  .copilot-badge-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(168, 109, 255, 0.2));
+    border: 1px solid rgba(0, 212, 255, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+  .copilot-h1 {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    color: #F1EDFA;
+  }
+  .copilot-status {
+    font-size: 9px;
+    color: var(--cyan);
+    letter-spacing: 0.5px;
+    font-weight: 600;
+  }
+  .copilot-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .copilot-btn-tool {
+    background: transparent;
+    border: 1px solid rgba(168, 109, 255, 0.25);
+    color: var(--text-dim);
+    font-size: 10px;
+    padding: 4px 8px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace;
+    transition: all 0.2s;
+  }
+  .copilot-pill-btn {
+    background: rgba(0, 212, 255, 0.12);
+    border: 1px solid rgba(0, 212, 255, 0.4);
+    color: #7FE3FF;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .copilot-pill-btn.online {
+    background: rgba(0, 229, 163, 0.18);
+    border-color: #00E5A3;
+    color: #00E5A3;
+    box-shadow: 0 0 8px rgba(0, 229, 163, 0.35);
+  }
+  .copilot-pill-btn:hover {
+    border-color: #00D4FF;
+    color: #FFF;
+  }
+  .copilot-btn-tool:hover {
+    color: #FF5C7A;
+    border-color: #FF5C7A;
+  }
+  .copilot-btn-close {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 4px;
+    transition: color 0.2s;
+  }
+  .copilot-btn-close:hover {
+    color: #FFF;
+  }
+
+  .copilot-chips-bar {
+    display: flex;
+    gap: 6px;
+    padding: 8px 12px;
+    background: rgba(14, 9, 24, 0.85);
+    border-bottom: 1px solid rgba(168, 109, 255, 0.15);
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .copilot-chips-bar::-webkit-scrollbar { height: 3px; }
+  .copilot-chips-bar::-webkit-scrollbar-thumb { background: rgba(0, 212, 255, 0.3); border-radius: 2px; }
+  .copilot-chip {
+    background: rgba(28, 19, 50, 0.8);
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    color: #EDE9F7;
+    font-size: 9.5px;
+    font-weight: 600;
+    padding: 4px 9px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.4px;
+    transition: all 0.2s;
+  }
+  .copilot-chip:hover {
+    border-color: #00D4FF;
+    color: #00D4FF;
+    background: rgba(0, 212, 255, 0.12);
+  }
+
+  .copilot-messages {
+    flex: 1;
+    padding: 14px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .copilot-messages::-webkit-scrollbar { width: 5px; }
+  .copilot-messages::-webkit-scrollbar-thumb { background: rgba(168, 109, 255, 0.25); border-radius: 3px; }
+
+  .copilot-msg {
+    display: flex;
+    gap: 8px;
+    font-size: 11px;
+    line-height: 1.55;
+    animation: msgFadeIn 0.25s ease;
+  }
+  @keyframes msgFadeIn {
+    0% { opacity: 0; transform: translateY(6px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  .copilot-msg.copilot-user {
+    justify-content: flex-end;
+  }
+  .copilot-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #00D4FF, #A86DFF);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    flex-shrink: 0;
+    box-shadow: 0 0 8px rgba(0, 212, 255, 0.4);
+  }
+  .copilot-bubble {
+    max-width: 82%;
+    padding: 9px 12px;
+    border-radius: 9px;
+    word-break: break-word;
+  }
+  .copilot-assistant .copilot-bubble {
+    background: rgba(22, 15, 40, 0.9);
+    border: 1px solid rgba(168, 109, 255, 0.3);
+    color: #EDE9F7;
+    border-top-left-radius: 2px;
+  }
+  .copilot-user .copilot-bubble {
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.25), rgba(120, 50, 220, 0.35));
+    border: 1px solid rgba(0, 212, 255, 0.5);
+    color: #FFF;
+    border-top-right-radius: 2px;
+  }
+  .copilot-bubble p { margin: 0 0 6px 0; }
+  .copilot-bubble p:last-child { margin-bottom: 0; }
+  .copilot-bubble pre {
+    background: #080512;
+    border: 1px solid rgba(0, 212, 255, 0.25);
+    border-radius: 6px;
+    padding: 8px;
+    margin: 6px 0;
+    overflow-x: auto;
+    font-size: 10px;
+    color: #7FE3FF;
+  }
+  .copilot-bubble code {
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .copilot-input-bar {
+    padding: 10px 14px;
+    background: rgba(18, 12, 32, 0.95);
+    border-top: 1px solid rgba(168, 109, 255, 0.2);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .copilot-input {
+    flex: 1;
+    background: #0B0716;
+    border: 1px solid rgba(168, 109, 255, 0.3);
+    border-radius: 7px;
+    padding: 8px 12px;
+    color: #FFF;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    outline: none;
+    transition: all 0.2s;
+  }
+  .copilot-input:focus {
+    border-color: #00D4FF;
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+  }
+  .copilot-btn-send {
+    background: linear-gradient(135deg, #00D4FF 0%, #0099cc 100%);
+    border: none;
+    color: #07040e;
+    width: 34px;
+    height: 34px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .copilot-btn-send:hover {
+    box-shadow: 0 0 12px #00D4FF;
+    transform: translateY(-1px);
+  }
+
   @media (max-width: 1100px) {
     .mitre-grid { grid-template-columns: repeat(3, 1fr); }
   }
@@ -1236,6 +1779,7 @@
     .firewall-grid { grid-template-columns: 1fr; }
     .mitre-grid { grid-template-columns: repeat(2, 1fr); }
     .quick-roles-cluster { grid-template-columns: 1fr; }
+    .copilot-window { width: calc(100vw - 24px); right: 12px; bottom: 74px; }
   }
 </style>
 </head>
@@ -1247,17 +1791,23 @@
 <header>
   <div class="brand">
     <div style="display: flex; align-items: center; gap: 12px;">
-      <div style="width: 34px; height: 34px; border-radius: 8px; background: linear-gradient(135deg, rgba(168,109,255,0.25), rgba(0,212,255,0.2)); border: 1px solid rgba(168,109,255,0.45); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 14px rgba(168,109,255,0.25);">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A86DFF" stroke-width="2.2"><path d="M12 2 4 5v6c0 5 3.5 8.5 8 11 4.5-2.5 8-6 8-11V5l-8-3z"/></svg>
+      <div class="brand-shield-wrap">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2 4 5v6c0 5 3.5 8.5 8 11 4.5-2.5 8-6 8-11V5l-8-3z"/></svg>
       </div>
       <div>
-        <h1 style="font-size: 19px; font-weight: 700; margin: 0; letter-spacing: 0.5px;">AEGIS <span class="ai" style="color: var(--cyan);">AI</span></h1>
-        <div class="sub" style="font-size: 10px; margin-top: 2px; color: var(--text-dim); letter-spacing: 0.8px;">THREAT INTELLIGENCE &amp; ACTIVE DEFENSE PLATFORM</div>
+        <h1 class="brand-title-text" style="font-size: 19px; font-weight: 700; margin: 0; letter-spacing: 0.6px;">AEGIS <span class="ai" style="color: var(--cyan);">AI</span></h1>
+        <div class="sub" style="font-size: 10px; margin-top: 2px; color: var(--text-dim); letter-spacing: 0.8px;">SOVEREIGN CYBER DEFENSE &amp; ACTIVE THREAT INTELLIGENCE</div>
       </div>
     </div>
   </div>
 
-  <div style="display: flex; align-items: center; gap: 14px;">
+  <div style="display: flex; align-items: center; gap: 12px;">
+    <!-- Tri-Display Theme Switcher Button (Luxury Cyber / Enterprise SOC / Cyberpunk NOC) -->
+    <button class="btn-theme-toggle" id="themeToggleBtn" onclick="toggleDisplayTheme()" title="Switch Theme: Luxury Cyber (Black Titanium & Gold), Enterprise SOC, or Cyberpunk NOC">
+      <span id="themeToggleIcon">👑</span>
+      <span id="themeToggleText">THEME: LUXURY CYBER</span>
+    </button>
+
     <!-- WebSocket Real-Time Connection Indicator -->
     <div class="ws-live-pill ws-connected" id="wsLivePill" title="Real-Time Socket.IO Engine Connected">
       <span class="ws-dot"></span>
@@ -1535,28 +2085,40 @@
     </div>
   </div>
 
-  <!-- Incident Report & Deep Packet Forensics Center -->
+  <!-- Threat Details & Forensic Inspection Panel -->
   <div class="glass" id="report-panel">
     <div class="panel-header">
-      <span>&gt; Incident Forensics &amp; Deep Packet Inspection Center</span>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span>&gt; Threat Details &amp; Packet Inspection</span>
+        <span class="hud-tag" style="font-size:9.5px; opacity:0.85;">Selected Alert Forensics</span>
+      </div>
       <button onclick="document.getElementById('report-panel').style.display='none'">MINIMIZE</button>
     </div>
     
     <div class="report-tabs">
-      <button class="report-tab-btn active-tab" onclick="switchReportTab('xai')">🔍 EXPLAINABLE AI (SHAP)</button>
-      <button class="report-tab-btn" onclick="switchReportTab('dissector')">🔬 DEEP PACKET DISSECTOR &amp; HEX</button>
-      <button class="report-tab-btn" onclick="switchReportTab('firewall')">🛡️ FIREWALL SYNTAX &amp; PLAYBOOK</button>
+      <button class="report-tab-btn active-tab" onclick="switchReportTab('xai')">🧠 AI Explanation (Why Flagged)</button>
+      <button class="report-tab-btn" onclick="switchReportTab('dissector')">📦 Packet Details &amp; Data (Wireshark View)</button>
+      <button class="report-tab-btn" onclick="switchReportTab('firewall')">🛡️ How To Block (Firewall Commands)</button>
     </div>
 
     <!-- Tab 1: XAI / Plain English -->
     <div class="tab-content active-content" id="tab-xai">
+      <div style="font-size:11px; color:var(--text-dim); margin-bottom:8px;">
+        Plain-English explanation of why our Machine Learning model detected this traffic:
+      </div>
       <pre id="report-text"></pre>
     </div>
 
     <!-- Tab 2: Wireshark Packet Dissector & Hex -->
     <div class="tab-content" id="tab-dissector">
+      <div style="font-size:11px; color:var(--text-dim); margin-bottom:10px; padding:7px 12px; background:rgba(0,212,255,0.06); border-left:3px solid var(--cyan); border-radius:4px; line-height:1.5;">
+        <strong>What is this?</strong> Shows the network packet's exact sender, target server, connection type, and raw data on the wire (just like in Wireshark) to verify the attack.
+      </div>
       <div class="dissector-tree" id="dissectorTree">
         <!-- Generated dynamically -->
+      </div>
+      <div style="font-size:10px; color:var(--text-dim); margin-top:12px; margin-bottom:4px; font-weight:700; letter-spacing:0.5px;">
+        RAW DATA ON THE WIRE (HEXADECIMAL DUMP):
       </div>
       <div class="hex-dump-box" id="hexDumpBox">
         <!-- Generated dynamically -->
@@ -1565,15 +2127,18 @@
 
     <!-- Tab 3: Firewall Syntax -->
     <div class="tab-content" id="tab-firewall">
+      <div style="font-size:11px; color:var(--text-dim); margin-bottom:10px; padding:7px 12px; background:rgba(0,229,163,0.06); border-left:3px solid var(--safe); border-radius:4px; line-height:1.5;">
+        <strong>What is this?</strong> Ready-to-copy commands to block this attacker IP across your Linux servers, company routers, or cloud website firewalls (Cloudflare/AWS).
+      </div>
       <div class="firewall-syntax-box" id="firewallSyntax">
         <!-- Generated dynamically -->
       </div>
     </div>
 
     <div class="block-action" id="block-action-wrap">
-      <button class="btn-dossier-export" onclick="openForensicDossier()">📄 EXPORT FORENSIC DOSSIER</button>
-      <button class="btn-block" id="blockBtn">🛑 BLOCK SOURCE</button>
-      <button class="btn-unblock" id="unblockBtn" style="display:none;">UNBLOCK SOURCE</button>
+      <button class="btn-dossier-export" onclick="openForensicDossier()">📄 Print Incident Dossier</button>
+      <button class="btn-block" id="blockBtn">🛑 BLOCK ATTACKER IP</button>
+      <button class="btn-unblock" id="unblockBtn" style="display:none;">✅ UNBLOCK IP</button>
     </div>
   </div>
 
@@ -1759,6 +2324,59 @@
   </div>
 </div>
 
+<!-- ================= AEGIS AI Security Copilot Floating Launcher & Cyber Drawer ================= -->
+<button class="copilot-floating-btn" id="copilotToggleBtn" onclick="toggleCopilot()" title="Launch AEGIS AI Security Copilot">
+  <span class="copilot-btn-icon">🤖</span>
+  <span>AEGIS COPILOT</span>
+  <span class="copilot-online-dot"></span>
+</button>
+
+<div class="copilot-window" id="copilotDrawer">
+  <div class="copilot-header">
+    <div class="copilot-title-cluster">
+      <div class="copilot-badge-icon">🛡️</div>
+      <div>
+        <div class="copilot-h1">AEGIS SECURITY COPILOT</div>
+        <div class="copilot-status" id="copilotLlmStatus">● LOCAL LLM: CONNECTING...</div>
+      </div>
+    </div>
+    <div class="copilot-header-actions">
+      <button class="copilot-pill-btn" id="copilotEnginePill" onclick="sendQuickPrompt('/ollama')" title="Click to view Local LLM status & models">🧠 LOCAL LLM: STANDBY</button>
+      <button class="copilot-btn-tool" onclick="clearCopilotChat()" title="Clear Chat History">CLEAR</button>
+      <button class="copilot-btn-close" onclick="toggleCopilot(false)" title="Minimize Copilot">✕</button>
+    </div>
+  </div>
+
+  <div class="copilot-chips-bar">
+    <button class="copilot-chip" onclick="sendQuickPrompt('/playbook')">📋 NIST Playbook</button>
+    <button class="copilot-chip" onclick="sendQuickPrompt('/triage')">🔬 Deep Triage</button>
+    <button class="copilot-chip" onclick="sendQuickPrompt('/ollama')">🧠 Ollama Status</button>
+    <button class="copilot-chip" onclick="sendQuickPrompt('Summarize recent incidents')">📊 Incident Briefing</button>
+    <button class="copilot-chip" onclick="sendQuickPrompt('Explain last attack')">🧠 Explain Threat</button>
+    <button class="copilot-chip" onclick="sendQuickPrompt('What is AEGIS?')">🛡️ What is AEGIS?</button>
+    <button class="copilot-chip" onclick="sendQuickPrompt('Block top attacker')">🚫 Neutralize Attacker</button>
+    <button class="copilot-chip" onclick="sendQuickPrompt('Explain SHAP feature importance')">🔍 SHAP Insights</button>
+  </div>
+
+  <div class="copilot-messages" id="copilotMessages">
+    <div class="copilot-msg copilot-assistant">
+      <div class="copilot-avatar">🛡️</div>
+      <div class="copilot-bubble">
+        <p><strong>Greetings, Operator! I am AEGIS Copilot.</strong></p>
+        <p>I am your AI Cyber Defense &amp; SOC Security Partner. You can ask me <em>anything</em> about AEGIS, our Random Forest ML model, SHAP explainability, dataset, or execute instant firewall mitigations.</p>
+        <p style="font-size:10.5px; color:var(--text-dim); margin-top:5px;">💡 Try asking: <em>"What is AEGIS?"</em>, <em>"How does it detect attacks?"</em>, or <em>"Block Moscow"</em>.</p>
+      </div>
+    </div>
+  </div>
+
+  <form class="copilot-input-bar" id="copilotForm" onsubmit="handleCopilotSubmit(event)">
+    <input type="text" id="copilotInput" class="copilot-input" placeholder="Instruct Copilot (e.g. 'Block 203.0.113.7', 'Explain attack')..." autocomplete="off">
+    <button type="submit" class="copilot-btn-send" title="Send Instruction">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+    </button>
+  </form>
+</div>
+
 <script>
 /* ================= Core System State & Logic ================= */
 const API_BASE = window.location.origin;
@@ -1773,6 +2391,157 @@ const waterfallLabels = Array(30).fill('');
 const ingressData = Array(30).fill(120);
 const attackPressureData = Array(30).fill(0);
 const blockedDropData = Array(30).fill(0);
+
+/* ================= Tri-Theme Display Controller (Luxury Cyber vs Enterprise SOC vs Cyberpunk NOC) ================= */
+let currentTheme = localStorage.getItem('aegis_theme');
+if (!currentTheme || currentTheme === 'enterprise') {
+  currentTheme = 'luxury';
+  localStorage.setItem('aegis_theme', 'luxury');
+}
+
+function applyTheme(theme) {
+  currentTheme = theme;
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('aegis_theme', theme);
+
+  const btnText = document.getElementById('themeToggleText');
+  const btnIcon = document.getElementById('themeToggleIcon');
+  if (btnText && btnIcon) {
+    if (theme === 'luxury') {
+      btnIcon.textContent = '👑';
+      btnText.textContent = 'THEME: LUXURY CYBER';
+    } else if (theme === 'enterprise') {
+      btnIcon.textContent = '🏢';
+      btnText.textContent = 'THEME: ENTERPRISE SOC';
+    } else {
+      btnIcon.textContent = '👾';
+      btnText.textContent = 'THEME: CYBERPUNK NOC';
+    }
+  }
+
+  // Update Chart.js colors dynamically
+  updateChartColors(theme);
+
+  // Update Three.js 3D lighting if available
+  if (typeof window.updateThreeThemeLighting === 'function') {
+    window.updateThreeThemeLighting(theme);
+  }
+}
+
+function toggleDisplayTheme() {
+  let nextTheme = 'luxury';
+  if (currentTheme === 'luxury') {
+    nextTheme = 'enterprise';
+  } else if (currentTheme === 'enterprise') {
+    nextTheme = 'cyberpunk';
+  } else {
+    nextTheme = 'luxury';
+  }
+
+  applyTheme(nextTheme);
+  const modeName = nextTheme === 'luxury'
+    ? 'Luxury Cyber Mode (Black Titanium & 24K Champagne Gold)'
+    : (nextTheme === 'enterprise'
+      ? 'Enterprise SOC Mode (CrowdStrike / NIST Standard: Emerald Green Safe)'
+      : 'Cyberpunk NOC Mode (High-Contrast Neon Violet)');
+  showToastNotification(`Active Theme: ${modeName}`);
+}
+
+function updateChartColors(theme) {
+  const t = theme || currentTheme;
+  const isLuxury = t === 'luxury';
+  const isEnt = t === 'enterprise';
+  const ctxPie = document.getElementById('pieChart')?.getContext('2d');
+  if (pieChart && ctxPie) {
+    const gradNormal = ctxPie.createLinearGradient(0, 0, 180, 180);
+    if (isLuxury) {
+      gradNormal.addColorStop(0, '#6EE7B7');
+      gradNormal.addColorStop(0.5, '#00F5A0');
+      gradNormal.addColorStop(1, '#047857');
+    } else if (isEnt) {
+      gradNormal.addColorStop(0, '#34D399');
+      gradNormal.addColorStop(0.5, '#00E5A3');
+      gradNormal.addColorStop(1, '#047857');
+    } else {
+      gradNormal.addColorStop(0, '#C488FF');
+      gradNormal.addColorStop(0.5, '#9D5CFF');
+      gradNormal.addColorStop(1, '#5B17B0');
+    }
+
+    const gradAttack = ctxPie.createLinearGradient(0, 0, 180, 180);
+    if (isLuxury) {
+      gradAttack.addColorStop(0, '#FDA4AF');
+      gradAttack.addColorStop(0.5, '#FF2E56');
+      gradAttack.addColorStop(1, '#881337');
+    } else if (isEnt) {
+      gradAttack.addColorStop(0, '#FB7185');
+      gradAttack.addColorStop(0.5, '#FF3B5C');
+      gradAttack.addColorStop(1, '#9F1239');
+    } else {
+      gradAttack.addColorStop(0, '#FDA4AF');
+      gradAttack.addColorStop(0.5, '#FF5C7A');
+      gradAttack.addColorStop(1, '#9F1239');
+    }
+
+    const gradBlocked = ctxPie.createLinearGradient(0, 0, 180, 180);
+    if (isLuxury) {
+      gradBlocked.addColorStop(0, '#FFF2BD');
+      gradBlocked.addColorStop(0.5, '#D4AF37');
+      gradBlocked.addColorStop(1, '#785D12');
+    } else if (isEnt) {
+      gradBlocked.addColorStop(0, '#94A3B8');
+      gradBlocked.addColorStop(0.5, '#475569');
+      gradBlocked.addColorStop(1, '#1E293B');
+    } else {
+      gradBlocked.addColorStop(0, '#CBD5E1');
+      gradBlocked.addColorStop(0.5, '#64748B');
+      gradBlocked.addColorStop(1, '#334155');
+    }
+
+    pieChart.data.datasets[0].backgroundColor = [gradNormal, gradAttack, gradBlocked];
+    pieChart.data.datasets[0].borderColor = isLuxury ? '#080A10' : (isEnt ? '#0B111E' : '#110C24');
+    pieChart.update('none');
+  }
+
+  const ctxWater = document.getElementById('waterfallChart')?.getContext('2d');
+  if (waterfallChart && ctxWater) {
+    const gradPressure = ctxWater.createLinearGradient(0, 0, 0, 160);
+    if (isLuxury) {
+      gradPressure.addColorStop(0, 'rgba(255, 46, 86, 0.75)');
+      gradPressure.addColorStop(0.4, 'rgba(255, 46, 86, 0.28)');
+      gradPressure.addColorStop(1, 'rgba(120, 15, 30, 0.01)');
+    } else if (isEnt) {
+      gradPressure.addColorStop(0, 'rgba(255, 59, 92, 0.75)');
+      gradPressure.addColorStop(0.4, 'rgba(255, 59, 92, 0.28)');
+      gradPressure.addColorStop(1, 'rgba(120, 15, 30, 0.01)');
+    } else {
+      gradPressure.addColorStop(0, 'rgba(255, 92, 122, 0.75)');
+      gradPressure.addColorStop(0.4, 'rgba(255, 60, 95, 0.28)');
+      gradPressure.addColorStop(1, 'rgba(120, 15, 40, 0.01)');
+    }
+
+    const gradBlockedDrop = ctxWater.createLinearGradient(0, 0, 0, 160);
+    if (isLuxury) {
+      gradBlockedDrop.addColorStop(0, 'rgba(212, 175, 55, 0.70)');
+      gradBlockedDrop.addColorStop(0.5, 'rgba(212, 175, 55, 0.22)');
+      gradBlockedDrop.addColorStop(1, 'rgba(120, 90, 20, 0.01)');
+    } else if (isEnt) {
+      gradBlockedDrop.addColorStop(0, 'rgba(0, 229, 163, 0.55)');
+      gradBlockedDrop.addColorStop(0.5, 'rgba(0, 180, 130, 0.18)');
+      gradBlockedDrop.addColorStop(1, 'rgba(4, 120, 87, 0.01)');
+    } else {
+      gradBlockedDrop.addColorStop(0, 'rgba(168, 109, 255, 0.6)');
+      gradBlockedDrop.addColorStop(0.5, 'rgba(120, 70, 200, 0.18)');
+      gradBlockedDrop.addColorStop(1, 'rgba(60, 20, 100, 0.01)');
+    }
+
+    waterfallChart.data.datasets[1].borderColor = isLuxury ? '#FF2E56' : (isEnt ? '#FF3B5C' : '#FF5C7A');
+    waterfallChart.data.datasets[1].backgroundColor = gradPressure;
+    waterfallChart.data.datasets[2].borderColor = isLuxury ? '#D4AF37' : (isEnt ? '#00E5A3' : '#A86DFF');
+    waterfallChart.data.datasets[2].backgroundColor = gradBlockedDrop;
+    waterfallChart.update('none');
+  }
+}
 
 function initCharts() {
   const ctxPie = document.getElementById('pieChart').getContext('2d');
@@ -1905,6 +2674,7 @@ function initCharts() {
       }
     }
   });
+  updateChartColors(currentTheme);
 }
 
 function updateTelemetryWaterfall(stats) {
@@ -2150,30 +2920,58 @@ const mitreStats = {
   t1498: 0
 };
 
+function classifyMitreTactic(alert) {
+  if (!alert) return null;
+  const isThreat = alert.prediction === 'Attack' || alert.prediction === 'Blocked';
+  if (!isThreat) return null;
+
+  const raw = (
+    (alert.mitre_tactic || '') + ' ' +
+    (alert.mitre_name || '') + ' ' +
+    (alert.attack_category || '') + ' ' +
+    (alert.attack_type || '') + ' ' +
+    (alert.report || '')
+  ).toLowerCase();
+
+  if (raw.includes('t1595') || raw.includes('probe') || raw.includes('port scan') || raw.includes('portscan') || raw.includes('reconnaissance') || raw.includes('mscan') || raw.includes('satan') || raw.includes('ipsweep') || raw.includes('portsweep') || raw.includes('nmap') || raw.includes('saint')) {
+    return 't1595';
+  }
+  if (raw.includes('t1110') || raw.includes('r2l') || raw.includes('brute force') || raw.includes('patator') || raw.includes('guess_passwd') || raw.includes('failed login') || raw.includes('credential') || raw.includes('ftp_write') || raw.includes('imap') || raw.includes('password')) {
+    return 't1110';
+  }
+  if (raw.includes('t1068') || raw.includes('u2r') || raw.includes('root shell') || raw.includes('rootkit') || raw.includes('privilege') || raw.includes('buffer_overflow') || raw.includes('loadmodule') || raw.includes('perl') || raw.includes('root')) {
+    return 't1068';
+  }
+  if (raw.includes('t1027') || raw.includes('fragment') || raw.includes('teardrop') || raw.includes('evasion') || raw.includes('pod')) {
+    return 't1027';
+  }
+  if (raw.includes('t1190') || raw.includes('exploit') || raw.includes('public app') || raw.includes('apache') || raw.includes('warez') || raw.includes('tunnel') || raw.includes('sendmail') || raw.includes('named')) {
+    return 't1190';
+  }
+  if (raw.includes('t1498') || raw.includes('dos') || raw.includes('denial of service') || raw.includes('flood') || raw.includes('syn flood') || raw.includes('neptune') || raw.includes('smurf') || raw.includes('mailbomb') || raw.includes('processtable')) {
+    return 't1498';
+  }
+  return 't1190';
+}
+
 function updateMitreMatrix(alerts) {
-  let activeCount = 0;
-  alerts.forEach(a => {
-    const r = (a.report || '') + (a.prediction || '');
-    if (r.includes('DoS') || r.includes('Denial of Service')) {
-      mitreStats.t1498++;
-    }
-    if (r.includes('Probe') || r.includes('Port Scan')) {
-      mitreStats.t1595++;
-    }
-    if (r.includes('R2L') || r.includes('failed login') || r.includes('Brute Force')) {
-      mitreStats.t1110++;
-    }
-    if (r.includes('U2R') || r.includes('root shell')) {
-      mitreStats.t1068++;
-    }
-    if (r.includes('fragment')) {
-      mitreStats.t1027++;
-    }
-    if (a.prediction === 'Attack') {
-      mitreStats.t1190++;
-    }
+  const windowCounts = { t1595: 0, t1190: 0, t1110: 0, t1068: 0, t1027: 0, t1498: 0 };
+
+  if (Array.isArray(alerts)) {
+    alerts.forEach(a => {
+      const tactic = classifyMitreTactic(a);
+      if (tactic && windowCounts[tactic] !== undefined) {
+        windowCounts[tactic]++;
+      }
+    });
+  }
+
+  // Update cumulative mitreStats so detections persist and grow
+  Object.keys(windowCounts).forEach(k => {
+    mitreStats[k] = Math.max(mitreStats[k] || 0, windowCounts[k]);
   });
 
+  let activeCount = 0;
   function setCard(id, count, name) {
     const card = document.getElementById(`mitre-${id}`);
     const status = document.getElementById(`status-${id}`);
@@ -2195,7 +2993,10 @@ function updateMitreMatrix(alerts) {
   setCard('t1027', mitreStats.t1027, 'Fragments');
   setCard('t1498', mitreStats.t1498, 'DoS Flood');
 
-  document.getElementById('mitreThreatCounter').textContent = `${activeCount} DETECTED TACTICS`;
+  const counterEl = document.getElementById('mitreThreatCounter');
+  if (counterEl) {
+    counterEl.textContent = `${activeCount} DETECTED TACTICS`;
+  }
 }
 
 function resetMitreMatrix() {
@@ -2277,32 +3078,30 @@ function showReport(alert) {
   const loc = alert.location || "Simulated Origin";
   const dissector = document.getElementById('dissectorTree');
   dissector.innerHTML = `
-    <div class="dissector-item"><span>▼</span> <b>Frame 1:</b> 1420 bytes on wire (11360 bits), 1420 bytes captured</div>
-    <div class="dissector-item"><span>▼</span> <b>Ethernet II:</b> Src: 02:42:ac:11:00:02, Dst: 02:42:ac:11:00:03 (Delhi Gateway)</div>
-    <div class="dissector-item"><span>▼</span> <b>Internet Protocol Version 4:</b> Src: <span style="color:#FF5C7A;">${ip}</span> (${loc}), Dst: 10.0.0.1, TTL: 64, TOS: 0x00</div>
-    <div class="dissector-item"><span>▼</span> <b>Transmission Control Protocol:</b> Src Port: 44921, Dst Port: 80, Flags: [SYN], Seq: 391829104, Win: 64240</div>
-    <div class="dissector-item"><span>▼</span> <b>Intrusion Detection Assessment:</b> Classification: <b>${alert.prediction}</b> (${Math.round(alert.confidence * 100)}% confidence)</div>
+    <div class="dissector-item"><span>▼</span> <b>📦 Network Packet:</b> 1,420 bytes captured from network interface</div>
+    <div class="dissector-item"><span>▼</span> <b>🌐 Network Route:</b> From External Gateway (02:42:ac:11:00:02) ➔ To Defense Node (02:42:ac:11:00:03)</div>
+    <div class="dissector-item"><span>▼</span> <b>📍 IP Addresses:</b> Attacker: <span style="color:#FF5C7A; font-weight:700;">${ip}</span> (${loc}) ➔ Target Server: <span style="color:var(--safe); font-weight:700;">10.0.0.1</span> (Port 80/HTTP)</div>
+    <div class="dissector-item"><span>▼</span> <b>⚡ Protocol Details:</b> TCP Source Port ${alert.src_port || 44921} ➔ Target Port 80 | Flags: [SYN]</div>
+    <div class="dissector-item"><span>▼</span> <b>🛡️ Security Verdict:</b> <b style="color:${alert.prediction === 'Normal' ? 'var(--safe)' : '#FF3B5C'};">${alert.prediction.toUpperCase()}</b> (${Math.round(alert.confidence * 100)}% certainty) ${alert.mitre_name ? `— [${alert.mitre_name}]` : ''}</div>
   `;
 
   // Render Realistic Hex Dump
   const hex = document.getElementById('hexDumpBox');
-  hex.innerHTML = `
-0000   45 00 00 3c 1a 2b 40 00  40 06 b2 c8 cb 00 71 07   E..<.+@.@.....q.
+  hex.innerHTML = `0000   45 00 00 3c 1a 2b 40 00  40 06 b2 c8 cb 00 71 07   E..<.+@.@.....q.
 0010   c6 33 64 04 04 93 00 50  a1 b2 c3 d4 00 00 00 00   .3d....P........
 0020   a0 02 fa f0 8a 3a 00 00  02 04 05 b4 04 02 08 0a   .....:..........
-0030   00 24 d1 a2 00 00 00 00  01 03 03 07               .$..........
-  `;
+0030   00 24 d1 a2 00 00 00 00  01 03 03 07               .$..........`;
 
   // Render Firewall Syntax
   const syntax = document.getElementById('firewallSyntax');
   syntax.innerHTML = `
-<div class="code-comment"># Linux Netfilter (iptables) — Drop packets at kernel ingress:</div>
+<div class="code-comment"># 1. Linux Server (iptables) — Block this attacker immediately on your server:</div>
 <div><span class="code-token">sudo iptables</span> -A INPUT -s ${ip} -j DROP</div>
 
-<div class="code-comment" style="margin-top:10px;"># Cisco ASA Firewall ACL:</div>
+<div class="code-comment" style="margin-top:12px;"># 2. Company Router / Hardware Firewall (Cisco ASA):</div>
 <div><span class="code-token">access-list</span> BLOCK_ATTACKER extended deny ip host ${ip} any</div>
 
-<div class="code-comment" style="margin-top:10px;"># Cloudflare / AWS WAF Expression:</div>
+<div class="code-comment" style="margin-top:12px;"># 3. Website &amp; Cloud Protection (Cloudflare / AWS WAF):</div>
 <div>(ip.src eq ${ip}) -&gt; Action: Block</div>
   `;
 
@@ -2316,12 +3115,12 @@ function showReport(alert) {
     if (isBlocked) {
       blockBtn.style.display = 'none';
       unblockBtn.style.display = 'inline-block';
-      unblockBtn.textContent = `UNBLOCK SOURCE — ${alert.source_ip}`;
+      unblockBtn.textContent = `✅ UNBLOCK IP — ${alert.source_ip}`;
       unblockBtn.onclick = () => unblockIP(alert.source_ip);
     } else {
       unblockBtn.style.display = 'none';
       blockBtn.style.display = 'inline-block';
-      blockBtn.textContent = `🛑 BLOCK SOURCE — ${alert.source_ip}${alert.location ? ' (' + alert.location + ')' : ''}`;
+      blockBtn.textContent = `🛑 BLOCK ATTACKER IP — ${alert.source_ip}${alert.location ? ' (' + alert.location + ')' : ''}`;
       blockBtn.onclick = () => blockIP(alert.source_ip, alert.location);
     }
   } else {
@@ -2981,7 +3780,7 @@ function showToastNotification(msg) {
     toast = document.createElement('div');
     toast.id = 'aegisGlobalToast';
     toast.style.cssText = `
-      position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+      position: fixed; bottom: 24px; left: 24px; z-index: 9999;
       background: rgba(21, 15, 36, 0.95); border: 1px solid #00D4FF;
       color: #EDE9F7; padding: 10px 18px; border-radius: 8px;
       font-size: 11.5px; font-weight: 600; font-family: 'IBM Plex Mono', monospace;
@@ -3023,6 +3822,11 @@ function initSocketIO() {
         currentAlerts.unshift(alert);
         if (currentAlerts.length > 50) currentAlerts.pop();
         checkForNewMapEvents([alert]);
+
+        const tactic = classifyMitreTactic(alert);
+        if (tactic && mitreStats[tactic] !== undefined) {
+          mitreStats[tactic]++;
+        }
         updateMitreMatrix(currentAlerts);
         refreshStats();
       });
@@ -3337,7 +4141,8 @@ function initFullStack() {
   }
 }
 
-// Initialize components
+// Initialize components & display theme
+applyTheme(currentTheme);
 initCharts();
 initRealisticMap();
 refreshAll();
@@ -3352,67 +4157,454 @@ setTimeout(() => {
   }
 }, 600);
 
+/* ================= AEGIS AI Security Copilot Client ================= */
+let isCopilotOpen = false;
+
+async function updateCopilotLlmStatus() {
+  try {
+    const res = await fetch(`${API_BASE}/api/copilot/status`);
+    if (res.ok) {
+      const data = await res.json();
+      const statusEl = document.getElementById('copilotLlmStatus');
+      const pillBtn = document.getElementById('copilotEnginePill');
+      if (data.localLLM && data.localLLM.online) {
+        const m = (data.localLLM.model || 'LLAMA3.2').toUpperCase();
+        if (statusEl) statusEl.innerHTML = `● LOCAL LLM (OLLAMA: ${m}) ACTIVE`;
+        if (pillBtn) {
+          pillBtn.className = 'copilot-pill-btn online';
+          pillBtn.innerHTML = `🧠 OLLAMA (${m})`;
+        }
+      } else {
+        if (statusEl) statusEl.innerHTML = `● HYBRID REASONING ENGINE (STANDBY)`;
+        if (pillBtn) {
+          pillBtn.className = 'copilot-pill-btn';
+          pillBtn.innerHTML = `🧠 LOCAL LLM: STANDBY`;
+        }
+      }
+    }
+  } catch(e) {}
+}
+
+function toggleCopilot(forceState) {
+  const drawer = document.getElementById('copilotDrawer');
+  const input = document.getElementById('copilotInput');
+  if (!drawer) return;
+
+  if (typeof forceState === 'boolean') {
+    isCopilotOpen = forceState;
+  } else {
+    isCopilotOpen = !isCopilotOpen;
+  }
+
+  if (isCopilotOpen) {
+    drawer.classList.add('active');
+    updateCopilotLlmStatus();
+    if (input) setTimeout(() => input.focus(), 150);
+  } else {
+    drawer.classList.remove('active');
+  }
+}
+
+function clearCopilotChat() {
+  const container = document.getElementById('copilotMessages');
+  if (!container) return;
+  container.innerHTML = `
+    <div class="copilot-msg copilot-assistant">
+      <div class="copilot-avatar">🛡️</div>
+      <div class="copilot-bubble">
+        <p><strong>AEGIS Tactical Copilot ready.</strong></p>
+        <p>Chat buffer cleared. Ingress telemetry and firewall controls standing by.</p>
+      </div>
+    </div>
+  `;
+}
+
+function sendQuickPrompt(promptText) {
+  const input = document.getElementById('copilotInput');
+  if (input) {
+    input.value = promptText;
+    handleCopilotSubmit(new Event('submit'));
+  }
+}
+
+function appendCopilotMessage(sender, htmlContent, suggestions = []) {
+  const container = document.getElementById('copilotMessages');
+  if (!container) return;
+
+  const msgDiv = document.createElement('div');
+  msgDiv.className = `copilot-msg copilot-${sender}`;
+
+  if (sender === 'assistant') {
+    let suggestionsHtml = '';
+    if (suggestions && suggestions.length > 0) {
+      suggestionsHtml = `
+        <div style="display:flex; flex-wrap:wrap; gap:5px; margin-top:8px;">
+          ${suggestions.map(s => `<button class="copilot-chip" style="font-size:9px; padding:2px 7px;" onclick="sendQuickPrompt('${s.replace(/'/g, "\\'")}')">${s}</button>`).join('')}
+        </div>
+      `;
+    }
+
+    msgDiv.innerHTML = `
+      <div class="copilot-avatar">🛡️</div>
+      <div class="copilot-bubble">
+        ${htmlContent}
+        ${suggestionsHtml}
+      </div>
+    `;
+  } else {
+    msgDiv.innerHTML = `
+      <div class="copilot-bubble">
+        ${htmlContent}
+      </div>
+    `;
+  }
+
+  container.appendChild(msgDiv);
+  container.scrollTop = container.scrollHeight;
+}
+
+function renderMarkdownText(text) {
+  if (!text) return '';
+  let html = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/```([a-z]*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+    .replace(/`([^`]+)`/g, '<code style="background:rgba(0,212,255,0.15); color:#7FE3FF; padding:1px 5px; border-radius:3px;">$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n/g, '<br>');
+  return `<p>${html}</p>`;
+}
+
+async function handleCopilotSubmit(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  const input = document.getElementById('copilotInput');
+  if (!input) return;
+  const message = input.value.trim();
+  if (!message) return;
+
+  // Append user message bubble
+  appendCopilotMessage('user', renderMarkdownText(message));
+  input.value = '';
+
+  // Append analyzing loader indicator
+  const container = document.getElementById('copilotMessages');
+  const loaderId = 'copilot-loader-' + Date.now();
+  const loaderDiv = document.createElement('div');
+  loaderDiv.className = 'copilot-msg copilot-assistant';
+  loaderDiv.id = loaderId;
+  loaderDiv.innerHTML = `
+    <div class="copilot-avatar">🛡️</div>
+    <div class="copilot-bubble" style="color:var(--text-dim); display:flex; align-items:center; gap:8px;">
+      <span class="copilot-online-dot"></span> Analyzing telemetry &amp; security policy...
+    </div>
+  `;
+  if (container) {
+    container.appendChild(loaderDiv);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/api/copilot/chat`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ message })
+    });
+
+    const loader = document.getElementById(loaderId);
+    if (loader) loader.remove();
+
+    if (!res.ok) {
+      appendCopilotMessage('assistant', `<p style="color:#FF5C7A;">Error contacting Copilot service (${res.status}). Tactical defense remains active.</p>`);
+      return;
+    }
+
+    const data = await res.json();
+    const formatted = renderMarkdownText(data.reply);
+    appendCopilotMessage('assistant', formatted, data.suggestions);
+
+    // If an action was executed by Copilot (e.g. BLOCK, UNBLOCK, LOCKDOWN)
+    if (data.actionExecuted) {
+      if (typeof refreshAll === 'function') refreshAll();
+      if (typeof loadBlockedIPs === 'function') loadBlockedIPs();
+      if (typeof refreshStats === 'function') refreshStats();
+      if (typeof refreshFeed === 'function') refreshFeed();
+
+      if (data.actionExecuted.type === 'BLOCK') {
+        showToastNotification(`Copilot Action: Blocked ${data.actionExecuted.ip}`);
+      } else if (data.actionExecuted.type === 'UNBLOCK') {
+        showToastNotification(`Copilot Action: Unblocked ${data.actionExecuted.ip}`);
+      } else if (data.actionExecuted.type === 'LOCKDOWN_ON') {
+        isEmergencyLockdown = true;
+        const btn = document.getElementById('btnLockdown');
+        if (btn) { btn.classList.add('active-lockdown'); btn.textContent = '🔒 LOCKDOWN ENGAGED (CLICK TO DISARM)'; }
+        showToastNotification(`Copilot Action: DEFCON-1 Lockdown Engaged`);
+      } else if (data.actionExecuted.type === 'LOCKDOWN_OFF') {
+        isEmergencyLockdown = false;
+        const btn = document.getElementById('btnLockdown');
+        if (btn) { btn.classList.remove('active-lockdown'); btn.textContent = '⚠️ EMERGENCY LOCKDOWN (DEFCON 1)'; }
+        showToastNotification(`Copilot Action: Lockdown Disarmed`);
+      }
+    }
+  } catch (err) {
+    console.error("Copilot request failed:", err);
+    const loader = document.getElementById(loaderId);
+    if (loader) loader.remove();
+    appendCopilotMessage('assistant', `<p style="color:#FF5C7A;">Telemetry link interrupted: ${err.message}</p>`);
+  }
+}
+
 /* ================= Professional Cyber Network Topology (Three.js) ================= */
+/* ================= Autonomous Cyber Threat Intelligence 3D Holographic Globe ================= */
 (function(){
   const canvas = document.getElementById('orbital-bg');
   if (!canvas) return;
   const w = window.innerWidth, h = window.innerHeight;
   const scene3 = new THREE.Scene();
-  scene3.fog = new THREE.FogExp2(0x070410, 0.007);
+  scene3.fog = new THREE.FogExp2(0x040508, 0.010);
 
-  const camera = new THREE.PerspectiveCamera(52, w/h, 0.1, 1000);
-  camera.position.set(0, 3, 36);
-  camera.lookAt(0, 0, -4);
+  const camera = new THREE.PerspectiveCamera(46, w / h, 0.1, 500);
+  camera.position.set(0, 0, 24);
+  camera.lookAt(0, 0, 0);
 
-  const renderer = new THREE.WebGLRenderer({canvas, antialias: true, alpha: true});
+  const renderer = new THREE.WebGLRenderer({
+    canvas,
+    antialias: false,
+    alpha: true,
+    powerPreference: "high-performance"
+  });
   renderer.setSize(w, h);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
 
-  // Ambient & Directional Lights
-  const ambLight = new THREE.AmbientLight(0x401f78, 2.0);
+  // Ambient & Specular Tactical Lighting
+  const ambLight = new THREE.AmbientLight(0x18140B, 2.4);
   scene3.add(ambLight);
 
-  const purpleLight = new THREE.PointLight(0xA86DFF, 4.5, 120);
-  purpleLight.position.set(16, 18, 12);
-  scene3.add(purpleLight);
+  const keyLight = new THREE.PointLight(0xD4AF37, 4.5, 90);
+  keyLight.position.set(16, 14, 12);
+  scene3.add(keyLight);
 
-  const cyanLight = new THREE.PointLight(0x00D4FF, 4.0, 120);
-  cyanLight.position.set(-16, -8, 12);
-  scene3.add(cyanLight);
+  const rimLight = new THREE.PointLight(0x00F5A0, 3.2, 90);
+  rimLight.position.set(-16, -10, 10);
+  scene3.add(rimLight);
 
-  // Central 3D Cyber Defense Holographic Core
-  const cyberGroup = new THREE.Group();
-  cyberGroup.position.set(0, 0, -4);
-  scene3.add(cyberGroup);
+  // Master Cyber Globe Group (Center of the World Threat Topology)
+  const globeGroup = new THREE.Group();
+  globeGroup.position.set(0, 0, 0);
+  scene3.add(globeGroup);
 
-  // 1. Inner Cyber Wireframe Geosphere
-  const sphereGeo = new THREE.IcosahedronGeometry(11.5, 2);
-  const sphereMat = new THREE.MeshBasicMaterial({
-    color: 0x7742DC,
-    wireframe: true,
+  const GLOBE_RADIUS = 7.0;
+
+  // Helper: Convert (lat, lon, radius, alt) to Cartesian Vector3
+  function latLonToVec3(lat, lon, r, alt = 0) {
+    const phi = (90 - lat) * (Math.PI / 180);
+    const theta = (lon + 180) * (Math.PI / 180);
+    const rad = r + alt;
+    return new THREE.Vector3(
+      -(rad * Math.sin(phi) * Math.cos(theta)),
+      rad * Math.cos(phi),
+      rad * Math.sin(phi) * Math.sin(theta)
+    );
+  }
+
+  // 1. Inner Dark Earth Shading Core (Smoked Obsidian Glass - Blocks Backside Clutter)
+  const coreGeo = new THREE.SphereGeometry(GLOBE_RADIUS * 0.985, 36, 36);
+  const coreMat = new THREE.MeshBasicMaterial({
+    color: 0x05070D,
     transparent: true,
-    opacity: 0.45
+    opacity: 0.88
   });
-  const cyberGlobe = new THREE.Mesh(sphereGeo, sphereMat);
-  cyberGroup.add(cyberGlobe);
+  const darkCore = new THREE.Mesh(coreGeo, coreMat);
+  globeGroup.add(darkCore);
 
-  // 2. Glowing Nodes on Globe Vertices
-  const vPositions = sphereGeo.attributes.position;
-  const nodeGeo = new THREE.BufferGeometry();
-  nodeGeo.setAttribute('position', vPositions);
-  const nodeMat = new THREE.PointsMaterial({
-    color: 0x00D4FF,
-    size: 2.2,
-    transparent: true,
-    opacity: 0.9
-  });
-  const nodePoints = new THREE.Points(nodeGeo, nodeMat);
-  cyberGroup.add(nodePoints);
-
-  // 3. Concentric 3D Tactical Defense Rings
-  function createCyberRing(radius, color, tiltX, tiltY) {
+  // 2. Latitude & Longitude Cyber Graticule Lines (Wireframe Coordinates)
+  const graticuleGroup = new THREE.Group();
+  function createLatRing(lat, r) {
+    const phi = (90 - lat) * (Math.PI / 180);
+    const ringRadius = r * Math.sin(phi);
+    const ringY = r * Math.cos(phi);
     const pts = [];
-    const segs = 100;
+    const segs = 64;
+    for (let i = 0; i <= segs; i++) {
+      const theta = (i / segs) * Math.PI * 2;
+      pts.push(new THREE.Vector3(Math.cos(theta) * ringRadius, ringY, Math.sin(theta) * ringRadius));
+    }
+    const g = new THREE.BufferGeometry().setFromPoints(pts);
+    const m = new THREE.LineBasicMaterial({ color: 0xD4AF37, transparent: true, opacity: 0.16 });
+    return new THREE.LineLoop(g, m);
+  }
+  // Parallels: Equator, 30°, 60°
+  [-60, -30, 0, 30, 60].forEach(lat => graticuleGroup.add(createLatRing(lat, GLOBE_RADIUS)));
+
+  // Meridians: Every 45°
+  for (let lon = 0; lon < 180; lon += 45) {
+    const pts = [];
+    const segs = 64;
+    for (let i = 0; i <= segs; i++) {
+      const lat = (i / segs) * 360 - 180;
+      pts.push(latLonToVec3(lat, lon, GLOBE_RADIUS));
+    }
+    const g = new THREE.BufferGeometry().setFromPoints(pts);
+    const m = new THREE.LineBasicMaterial({ color: 0xD4AF37, transparent: true, opacity: 0.14 });
+    graticuleGroup.add(new THREE.LineLoop(g, m));
+  }
+  globeGroup.add(graticuleGroup);
+
+  // 3. Real World Continents Point-Cloud (1,850 High-Tech Dot-Matrix Landmasses)
+  function pointInPoly(pt, poly) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const xi = poly[i][0], yi = poly[i][1];
+      const xj = poly[j][0], yj = poly[j][1];
+      const intersect = ((yi > pt[1]) !== (yj > pt[1])) && (pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  }
+
+  const CONTINENTS_POLYS = {
+    na: [[-168,66],[-162,71],[-130,70],[-95,73],[-80,62],[-60,60],[-65,45],[-75,35],[-80,25],[-97,26],[-97,18],[-85,15],[-77,8],[-82,8],[-105,20],[-117,32],[-124,48],[-141,60],[-168,66]],
+    sa: [[-78,12],[-60,10],[-35,-5],[-38,-18],[-55,-35],[-68,-55],[-75,-48],[-72,-30],[-81,-5],[-78,12]],
+    eu: [[-10,36],[3,36],[15,38],[28,36],[28,42],[40,42],[40,60],[30,70],[10,70],[5,60],[-5,48],[-10,43],[-10,36]],
+    af: [[-17,15],[-17,32],[10,37],[32,32],[43,12],[51,12],[40,-10],[33,-28],[26,-34],[18,-34],[12,-15],[9,4],[-15,11],[-17,15]],
+    as: [[40,42],[60,38],[75,25],[80,12],[90,22],[105,10],[110,20],[120,24],[122,38],[130,42],[140,55],[170,66],[180,68],[110,75],[60,70],[40,60],[40,42]],
+    in: [[68,24],[74,32],[78,35],[88,28],[88,22],[82,16],[77,8],[74,15],[70,20],[68,24]],
+    au: [[113,-22],[130,-12],[143,-12],[153,-28],[150,-38],[138,-35],[135,-32],[115,-35],[113,-22]],
+    uk: [[-10,50],[-5,59],[2,59],[2,50],[-10,50]],
+    jp: [[129,31],[135,35],[141,45],[145,45],[138,36],[129,31]]
+  };
+
+  const continentCoords = [];
+  for (let lat = -56; lat <= 72; lat += 2.5) {
+    for (let lon = -180; lon <= 180; lon += 3.0) {
+      for (const k in CONTINENTS_POLYS) {
+        if (pointInPoly([lon, lat], CONTINENTS_POLYS[k])) {
+          const v = latLonToVec3(lat, lon, GLOBE_RADIUS, 0.05);
+          continentCoords.push(v.x, v.y, v.z);
+          break;
+        }
+      }
+    }
+  }
+
+  const continentGeo = new THREE.BufferGeometry();
+  continentGeo.setAttribute('position', new THREE.Float32BufferAttribute(continentCoords, 3));
+  const continentMat = new THREE.PointsMaterial({
+    color: 0xFFE898,
+    size: 1.3,
+    transparent: true,
+    opacity: 0.85
+  });
+  const continentPoints = new THREE.Points(continentGeo, continentMat);
+  globeGroup.add(continentPoints);
+
+  // 4. Strategic Cyber Threat Hotspots & Ground Radar Pings
+  const HOTSPOTS = [
+    { name: "WASHINGTON [PRIMARY SOC]", lat: 38.90, lon: -77.03, type: "defense" },
+    { name: "FRANKFURT [GATEWAY CORE]", lat: 50.11, lon: 8.68, type: "defense" },
+    { name: "LONDON [EUROPE SOC]", lat: 51.50, lon: -0.12, type: "defense" },
+    { name: "MOSCOW [ACTIVE INGRESS]", lat: 55.75, lon: 37.61, type: "threat" },
+    { name: "BEIJING [SUSPECT ORIGIN]", lat: 39.90, lon: 116.40, type: "threat" },
+    { name: "TOKYO [PACIFIC HUB]", lat: 35.67, lon: 139.65, type: "defense" },
+    { name: "BUCHAREST [BOTNET NODE]", lat: 44.42, lon: 26.10, type: "threat" },
+    { name: "SAO PAULO [RECON VECTOR]", lat: -23.55, lon: -46.63, type: "threat" },
+    { name: "JAKARTA [TRAFFIC REFLECTOR]", lat: -6.20, lon: 106.81, type: "threat" },
+    { name: "LAGOS [CREDENTIAL PROBE]", lat: 6.52, lon: 3.37, type: "threat" }
+  ];
+
+  const radarRings = [];
+  HOTSPOTS.forEach(h => {
+    const pos = latLonToVec3(h.lat, h.lon, GLOBE_RADIUS, 0.08);
+    const isThreat = h.type === "threat";
+    const colorHex = isThreat ? 0xFF2E56 : 0x00F5A0;
+
+    // Hotspot central node
+    const node = new THREE.Mesh(
+      new THREE.SphereGeometry(0.18, 8, 8),
+      new THREE.MeshBasicMaterial({ color: colorHex })
+    );
+    node.position.copy(pos);
+    globeGroup.add(node);
+
+    // Pulsating Radar Target Ping on Globe Surface
+    const ringPts = [];
+    const segs = 32;
+    for (let i = 0; i <= segs; i++) {
+      const th = (i / segs) * Math.PI * 2;
+      ringPts.push(new THREE.Vector3(Math.cos(th) * 0.45, Math.sin(th) * 0.45, 0));
+    }
+    const rGeo = new THREE.BufferGeometry().setFromPoints(ringPts);
+    const rMat = new THREE.LineBasicMaterial({
+      color: colorHex,
+      transparent: true,
+      opacity: 0.75
+    });
+    const ringMesh = new THREE.LineLoop(rGeo, rMat);
+    ringMesh.position.copy(pos);
+    ringMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), pos.clone().normalize());
+    globeGroup.add(ringMesh);
+
+    radarRings.push({
+      mesh: ringMesh,
+      baseScale: 1.0,
+      phase: Math.random() * Math.PI * 2
+    });
+  });
+
+  // 5. Dynamic 3D Ballistic Cyber Attack Arcs (Signature Cybersecurity War Room Trajectories)
+  const ATTACK_VECTORS = [
+    { from: { lat: 55.75, lon: 37.61 }, to: { lat: 50.11, lon: 8.68 }, color: 0xFF2E56, name: "T1498 DoS" },
+    { from: { lat: 39.90, lon: 116.40 }, to: { lat: 38.90, lon: -77.03 }, color: 0xFF2E56, name: "T1190 Exploit" },
+    { from: { lat: 44.42, lon: 26.10 }, to: { lat: 51.50, lon: -0.12 }, color: 0xFF2E56, name: "T1110 Patator" },
+    { from: { lat: -23.55, lon: -46.63 }, to: { lat: 50.11, lon: 8.68 }, color: 0xE2C974, name: "T1595 Recon" },
+    { from: { lat: 6.52, lon: 3.37 }, to: { lat: 51.50, lon: -0.12 }, color: 0xFF2E56, name: "T1068 Privilege" },
+    { from: { lat: 50.11, lon: 8.68 }, to: { lat: 38.90, lon: -77.03 }, color: 0x00F5A0, name: "Defense Sync" },
+    { from: { lat: -6.20, lon: 106.81 }, to: { lat: 35.67, lon: 139.65 }, color: 0xFF2E56, name: "T1027 Evasion" }
+  ];
+
+  const attackArcs = [];
+  ATTACK_VECTORS.forEach(atk => {
+    const start = latLonToVec3(atk.from.lat, atk.from.lon, GLOBE_RADIUS, 0.08);
+    const end = latLonToVec3(atk.to.lat, atk.to.lon, GLOBE_RADIUS, 0.08);
+
+    const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+    const dist = start.distanceTo(end);
+    const elevation = GLOBE_RADIUS + Math.max(1.8, dist * 0.42);
+    mid.normalize().multiplyScalar(elevation);
+
+    const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
+    const pts = curve.getPoints(36);
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    const mat = new THREE.LineBasicMaterial({
+      color: atk.color,
+      transparent: true,
+      opacity: 0.55
+    });
+    const line = new THREE.Line(geo, mat);
+    globeGroup.add(line);
+
+    // Traveling attack packet (photon)
+    const packet = new THREE.Mesh(
+      new THREE.SphereGeometry(0.20, 6, 6),
+      new THREE.MeshBasicMaterial({ color: atk.color })
+    );
+    globeGroup.add(packet);
+
+    attackArcs.push({
+      line,
+      curve,
+      packet,
+      speed: 0.0035 + Math.random() * 0.002,
+      progress: Math.random()
+    });
+  });
+
+  // 6. Holographic Orbital Defense Rings (Axial 23.5° Cyber Shield)
+  function createOrbitalRing(radius, color, tiltX, tiltZ) {
+    const pts = [];
+    const segs = 72;
     for (let i = 0; i <= segs; i++) {
       const theta = (i / segs) * Math.PI * 2;
       pts.push(new THREE.Vector3(Math.cos(theta) * radius, 0, Math.sin(theta) * radius));
@@ -3421,65 +4613,53 @@ setTimeout(() => {
     const rMat = new THREE.LineBasicMaterial({
       color: color,
       transparent: true,
-      opacity: 0.55
+      opacity: 0.40
     });
     const ring = new THREE.LineLoop(rGeo, rMat);
     ring.rotation.x = tiltX;
-    ring.rotation.y = tiltY;
+    ring.rotation.z = tiltZ;
     return ring;
   }
 
-  const ring1 = createCyberRing(16.5, 0x00D4FF, 0.42, 0.18);
-  const ring2 = createCyberRing(21.5, 0xA86DFF, -0.36, -0.35);
-  const ring3 = createCyberRing(26.5, 0x7FE3FF, 0.55, -0.22);
-  cyberGroup.add(ring1);
-  cyberGroup.add(ring2);
-  cyberGroup.add(ring3);
+  const defenseRing1 = createOrbitalRing(9.2, 0xD4AF37, 0.41, 0.12);
+  const defenseRing2 = createOrbitalRing(11.4, 0x00F5A0, -0.35, -0.22);
+  globeGroup.add(defenseRing1);
+  globeGroup.add(defenseRing2);
 
-  // Orbiting Defense Nodes
-  const satGeo = new THREE.SphereGeometry(0.65, 12, 12);
-  const sat1 = new THREE.Mesh(satGeo, new THREE.MeshBasicMaterial({ color: 0x00D4FF }));
-  const sat2 = new THREE.Mesh(satGeo, new THREE.MeshBasicMaterial({ color: 0xFF5C7A }));
-  const sat3 = new THREE.Mesh(satGeo, new THREE.MeshBasicMaterial({ color: 0xA86DFF }));
-  cyberGroup.add(sat1);
-  cyberGroup.add(sat2);
-  cyberGroup.add(sat3);
-
-  // 4. Undulating 3D Cyber Wave Grid Floor
-  const gridW = 150, gridD = 150, gridDivs = 32;
-  const terrainGeo = new THREE.PlaneGeometry(gridW, gridD, gridDivs, gridDivs);
+  // 7. Wide Cyber Grid Horizon Floor (100% GPU Matrix Drift)
+  const terrainGeo = new THREE.PlaneGeometry(130, 130, 18, 18);
   terrainGeo.rotateX(-Math.PI / 2);
+  const tPos = terrainGeo.attributes.position;
+  for (let i = 0; i < tPos.count; i++) {
+    const x = tPos.getX(i);
+    const z = tPos.getZ(i);
+    tPos.setY(i, Math.sin(x * 0.10) * Math.cos(z * 0.10) * 1.5);
+  }
   const terrainMat = new THREE.MeshBasicMaterial({
-    color: 0x512C88,
+    color: 0x2A200E,
     wireframe: true,
     transparent: true,
-    opacity: 0.28
+    opacity: 0.15
   });
   const terrain = new THREE.Mesh(terrainGeo, terrainMat);
-  terrain.position.y = -15;
+  terrain.position.set(0, -10.5, -4);
   scene3.add(terrain);
 
-  const tPos = terrainGeo.attributes.position;
-  const originalY = new Float32Array(tPos.count);
-  for (let i = 0; i < tPos.count; i++) {
-    originalY[i] = tPos.getY(i);
-  }
-
-  // 5. Floating Cyber Data Particles
-  const partCount = 420;
+  // 8. Full-Screen Cyber Stardust Field
+  const partCount = 200;
   const partGeo = new THREE.BufferGeometry();
   const partPos = new Float32Array(partCount * 3);
   for (let i = 0; i < partCount; i++) {
-    partPos[i * 3] = (Math.random() - 0.5) * 110;
-    partPos[i * 3 + 1] = (Math.random() - 0.5) * 70;
+    partPos[i * 3] = (Math.random() - 0.5) * 100;
+    partPos[i * 3 + 1] = (Math.random() - 0.5) * 60;
     partPos[i * 3 + 2] = (Math.random() - 0.5) * 60;
   }
   partGeo.setAttribute('position', new THREE.BufferAttribute(partPos, 3));
   const partMat = new THREE.PointsMaterial({
-    color: 0x9D72FF,
-    size: 1.6,
+    color: 0xF5E6B3,
+    size: 1.2,
     transparent: true,
-    opacity: 0.7
+    opacity: 0.55
   });
   const cyberDust = new THREE.Points(partGeo, partMat);
   scene3.add(cyberDust);
@@ -3487,57 +4667,97 @@ setTimeout(() => {
   // Smooth Mouse Parallax
   let targetMouseX = 0, targetMouseY = 0;
   let curMouseX = 0, curMouseY = 0;
-  document.addEventListener('mousemove', (e) => {
-    targetMouseX = (e.clientX / window.innerWidth - 0.5) * 5;
-    targetMouseY = (e.clientY / window.innerHeight - 0.5) * 3;
+  window.addEventListener('mousemove', (e) => {
+    targetMouseX = (e.clientX / window.innerWidth - 0.5) * 1.8;
+    targetMouseY = (e.clientY / window.innerHeight - 0.5) * 1.0;
+  }, { passive: true });
+
+  let isTabVisible = true;
+  document.addEventListener('visibilitychange', () => {
+    isTabVisible = !document.hidden;
   });
 
   let t = 0;
   function animate() {
     requestAnimationFrame(animate);
-    t += 0.015;
+    if (!isTabVisible) return;
 
-    // Camera follow mouse with smooth easing
-    curMouseX += (targetMouseX - curMouseX) * 0.04;
-    curMouseY += (targetMouseY - curMouseY) * 0.04;
+    t += 0.012;
+
+    // Smooth camera tracking
+    curMouseX += (targetMouseX - curMouseX) * 0.03;
+    curMouseY += (targetMouseY - curMouseY) * 0.03;
     camera.position.x = curMouseX;
-    camera.position.y = 3 - curMouseY;
-    camera.lookAt(0, 0, -4);
+    camera.position.y = -curMouseY;
+    camera.lookAt(0, 0, 0);
 
-    // 3D Cyber Globe rotation
-    cyberGlobe.rotation.y += 0.0035;
-    cyberGlobe.rotation.x += 0.0015;
-    nodePoints.rotation.y += 0.0035;
-    nodePoints.rotation.x += 0.0015;
+    // Continuous Axial Rotation of Earth & Cyber Hotspots
+    globeGroup.rotation.y += 0.0016;
 
-    // Defense Rings counter-rotations
-    ring1.rotation.z += 0.0045;
-    ring2.rotation.z -= 0.0038;
-    ring3.rotation.z += 0.0032;
+    // Counter-rotation for defense gimbal rings
+    defenseRing1.rotation.y += 0.0022;
+    defenseRing2.rotation.y -= 0.0018;
 
-    // Orbiting Defense Nodes
-    const a1 = t * 0.75;
-    sat1.position.set(Math.cos(a1) * 16.5, Math.sin(a1) * 3, Math.sin(a1) * 16.5);
-    const a2 = -t * 0.55 + 1.2;
-    sat2.position.set(Math.cos(a2) * 21.5, Math.sin(a2) * -3.5, Math.sin(a2) * 21.5);
-    const a3 = t * 0.4 + 2.5;
-    sat3.position.set(Math.cos(a3) * 26.5, Math.sin(a3) * 4.5, Math.sin(a3) * 26.5);
+    // Pulsate Radar Hotspot Pings
+    radarRings.forEach(r => {
+      r.phase += 0.035;
+      const s = 1.0 + Math.sin(r.phase) * 0.5;
+      r.mesh.scale.set(s, s, s);
+      r.mesh.material.opacity = 0.35 + Math.cos(r.phase) * 0.35;
+    });
 
-    // Undulating Cyber Wave Grid
-    for (let i = 0; i < tPos.count; i++) {
-      const x = tPos.getX(i);
-      const z = tPos.getZ(i);
-      const wave = Math.sin(x * 0.09 + t * 0.8) * Math.cos(z * 0.09 + t * 0.8) * 1.5;
-      tPos.setY(i, originalY[i] + wave);
-    }
-    tPos.needsUpdate = true;
+    // Advance Traveling Attack Packets Along Ballistic Trajectories
+    attackArcs.forEach(a => {
+      a.progress = (a.progress + a.speed) % 1.0;
+      const pt = a.curve.getPoint(a.progress);
+      a.packet.position.copy(pt);
+    });
+
+    // Cyber Horizon slow drift (GPU matrix only)
+    terrain.rotation.y += 0.0004;
 
     // Particle field slow rotation
-    cyberDust.rotation.y = t * 0.015;
+    cyberDust.rotation.y = t * 0.006;
 
     renderer.render(scene3, camera);
   }
   animate();
+
+  window.updateThreeThemeLighting = function(theme) {
+    const t = theme || currentTheme;
+    const isLuxury = t === 'luxury';
+    const isEnt = t === 'enterprise';
+
+    if (keyLight) {
+      keyLight.color.setHex(isLuxury ? 0xD4AF37 : (isEnt ? 0x00E5A3 : 0xA86DFF));
+      keyLight.intensity = isLuxury ? 4.5 : (isEnt ? 3.4 : 4.0);
+    }
+    if (ambLight) {
+      ambLight.color.setHex(isLuxury ? 0x141008 : (isEnt ? 0x102538 : 0x281245));
+    }
+    if (continentMat) {
+      continentMat.color.setHex(isLuxury ? 0xFFE898 : (isEnt ? 0x00E5A3 : 0xA86DFF));
+    }
+    if (defenseRing1 && defenseRing1.material) {
+      defenseRing1.material.color.setHex(isLuxury ? 0xD4AF37 : (isEnt ? 0x0088CC : 0x00D4FF));
+    }
+    if (defenseRing2 && defenseRing2.material) {
+      defenseRing2.material.color.setHex(isLuxury ? 0x00F5A0 : (isEnt ? 0x00E5A3 : 0xA86DFF));
+    }
+    if (terrain && terrain.material) {
+      terrain.material.color.setHex(isLuxury ? 0x2A200E : (isEnt ? 0x0A281E : 0x220E38));
+    }
+    if (scene3.fog) {
+      scene3.fog.color.setHex(isLuxury ? 0x040508 : (isEnt ? 0x060911 : 0x070410));
+    }
+    if (cyberDust && cyberDust.material) {
+      cyberDust.material.color.setHex(isLuxury ? 0xF5E6B3 : (isEnt ? 0x88CCFF : 0xA86DFF));
+    }
+  };
+
+  if (typeof window.updateThreeThemeLighting === 'function') {
+    window.updateThreeThemeLighting(currentTheme);
+  }
 
   window.addEventListener('resize', () => {
     const nw = window.innerWidth, nh = window.innerHeight;

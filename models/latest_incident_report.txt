@@ -1,0 +1,11 @@
+INCIDENT REPORT
+--------------------------------------------------
+Classification: Suspicious Activity Detected
+Likely Category: DoS
+
+Summary: This network connection was flagged as a potential 'DoS' attack. The main factors that led to this decision were:
+  1. the amount of data sent from source to destination (recorded value: 0.0)
+  2. the amount of data sent from destination back to source (recorded value: 0.0)
+  3. dst host rerror rate (recorded value: 1.0)
+
+Recommended Action: Review the source of this connection. If this pattern repeats, consider temporarily blocking the source and investigating further.

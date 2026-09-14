@@ -12,6 +12,7 @@ What this does:
 
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 import joblib
 import os
@@ -28,25 +29,82 @@ FEATURE_COLUMNS = [
     "dst_host_srv_serror_rate", "dst_host_rerror_rate", "dst_host_srv_rerror_rate",
 ]
 
+MODEL_CANDIDATES = {
+    "RandomForest": lambda: RandomForestClassifier(n_estimators=100, max_depth=15, random_state=42, n_jobs=-1),
+    "DecisionTree": lambda: DecisionTreeClassifier(max_depth=15, random_state=42),
+}
+
+def evaluate_model(model, X, y):
+    y_pred = model.predict(X)
+    return {
+        "accuracy": float(accuracy_score(y, y_pred)),
+        "confusion_matrix": confusion_matrix(y, y_pred),
+        "report": classification_report(y, y_pred, zero_division=0)
+    }
+
+def select_best_model(X, y):
+    best_name = None
+    best_model = None
+    best_acc = -1.0
+    for name, factory in MODEL_CANDIDATES.items():
+        candidate = factory()
+        candidate.fit(X, y)
+        metrics = evaluate_model(candidate, X, y)
+        if metrics["accuracy"] > best_acc:
+            best_acc = metrics["accuracy"]
+            best_name = name
+            best_model = candidate
+    return best_name, best_model
+
+def build_explainer(model, X=None):
+    import shap
+    import numpy as np
+
+    if hasattr(model, "estimators_") or hasattr(model, "tree_") or "Tree" in type(model).__name__:
+        try:
+            return shap.TreeExplainer(model)
+        except Exception:
+            pass
+
+    X_arr = np.array(X) if X is not None else None
+    if hasattr(shap, "LinearExplainer") and ("Linear" in type(model).__name__ or "Logistic" in type(model).__name__):
+        try:
+            return shap.LinearExplainer(model, X_arr)
+        except Exception:
+            pass
+
+    try:
+        return shap.Explainer(model, X_arr)
+    except Exception:
+        predict_fn = model.predict_proba if hasattr(model, "predict_proba") else model.predict
+        background = X_arr[:5] if X_arr is not None else None
+        return shap.KernelExplainer(predict_fn, background)
+
 if __name__ == "__main__":
     print("Loading processed data...")
-    train_df = pd.read_csv("data/train_processed.csv")
-    test_df = pd.read_csv("data/test_processed.csv")
-
-    X_train = train_df[FEATURE_COLUMNS]
-    y_train = train_df["binary_label"]
-    X_test = test_df[FEATURE_COLUMNS]
-    y_test = test_df["binary_label"]
+    if os.path.exists("data/train_processed.csv"):
+        train_df = pd.read_csv("data/train_processed.csv")
+        test_df = pd.read_csv("data/test_processed.csv")
+        X_train = train_df[FEATURE_COLUMNS]
+        y_train = train_df["binary_label"]
+        X_test = test_df[FEATURE_COLUMNS]
+        y_test = test_df["binary_label"]
+    elif os.path.exists("data/test_processed.csv"):
+        print("Note: data/train_processed.csv not found. Partitioning data/test_processed.csv for training...")
+        from sklearn.model_selection import train_test_split
+        full_df = pd.read_csv("data/test_processed.csv")
+        train_df, test_df = train_test_split(full_df, test_size=0.25, random_state=42, stratify=full_df["binary_label"])
+        X_train = train_df[FEATURE_COLUMNS]
+        y_train = train_df["binary_label"]
+        X_test = test_df[FEATURE_COLUMNS]
+        y_test = test_df["binary_label"]
+    else:
+        raise FileNotFoundError("No processed dataset found in data/. Run src/preprocess.py first.")
 
     print(f"Training on {len(X_train)} samples, testing on {len(X_test)} samples...")
 
-    model = RandomForestClassifier(
-        n_estimators=100,
-        max_depth=15,
-        random_state=42,
-        n_jobs=-1
-    )
-    model.fit(X_train, y_train)
+    best_name, model = select_best_model(X_train, y_train)
+    print(f"Selected candidate model: {best_name}")
 
     print("\nEvaluating model...")
     y_pred = model.predict(X_test)

@@ -20,7 +20,25 @@ const path = require("path");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 
+// Load local .env if present
+const envPath = path.join(__dirname, ".env");
+if (fs.existsSync(envPath)) {
+  try {
+    const envContent = fs.readFileSync(envPath, "utf8");
+    envContent.split("\n").forEach(line => {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith("#")) {
+        const [k, ...v] = trimmed.split("=");
+        if (k && v.length) process.env[k.trim()] = v.join("=").trim();
+      }
+    });
+  } catch(e) {
+    console.warn("Could not read .env file:", e.message);
+  }
+}
+
 const db = require("./db");
+const copilot = require("./copilot");
 
 const app = express();
 const server = http.createServer(app);
@@ -65,6 +83,63 @@ const IP_LOCATIONS = {
 };
 const IP_LIST = Object.keys(IP_LOCATIONS);
 
+const attackPools = {
+  t1595: [], // Reconnaissance: PortScan / Probe
+  t1190: [], // Initial Access: Exploit Public App
+  t1110: [], // Credential Access: Brute Force / R2L
+  t1068: [], // Privilege Escalation: U2R
+  t1027: [], // Defense Evasion: Malformed Fragments
+  t1498: [], // Impact: Network DoS Flood
+  normal: []
+};
+
+function categorizeRecord(obj) {
+  const cat = String(obj.attack_category || "").trim().toLowerCase();
+  const lbl = String(obj.label || "").trim().toLowerCase();
+  const wf = parseFloat(obj.wrong_fragment) || 0;
+
+  if (wf > 0 || lbl === "teardrop" || lbl === "pod") {
+    obj.mitre_tactic = "T1027";
+    obj.mitre_name = "Fragment Evasion";
+    obj.attack_category = "Defense Evasion";
+    obj.attack_type = "Malformed Packet Fragmentation";
+    return "t1027";
+  }
+  if (cat === "u2r" || lbl === "buffer_overflow" || lbl === "rootkit" || lbl === "loadmodule" || lbl === "perl" || lbl === "ps") {
+    obj.mitre_tactic = "T1068";
+    obj.mitre_name = "User-to-Root Exploitation";
+    obj.attack_category = "Privilege Escalation";
+    obj.attack_type = lbl === "buffer_overflow" ? "Buffer Overflow" : "Root Shell Exploitation";
+    return "t1068";
+  }
+  if (cat === "r2l" || lbl.includes("guess") || lbl.includes("patator") || lbl === "ftp_write" || lbl === "imap" || lbl === "snmpguess") {
+    obj.mitre_tactic = "T1110.001";
+    obj.mitre_name = "Brute Force Password Guessing";
+    obj.attack_category = "Credential Access";
+    obj.attack_type = "Brute Force / Patator (R2L)";
+    return "t1110";
+  }
+  if (cat === "probe" || lbl.includes("sweep") || lbl === "satan" || lbl === "mscan" || lbl === "saint" || lbl === "nmap") {
+    obj.mitre_tactic = "T1595.002";
+    obj.mitre_name = "Port Scanning / Probe";
+    obj.attack_category = "Reconnaissance";
+    obj.attack_type = "PortScan / Network Probe";
+    return "t1595";
+  }
+  if (lbl === "apache2" || lbl === "back" || lbl === "httptunnel" || lbl === "warezmaster" || lbl === "sendmail" || lbl === "named") {
+    obj.mitre_tactic = "T1190";
+    obj.mitre_name = "Exploit Public App";
+    obj.attack_category = "Initial Access";
+    obj.attack_type = "Public Service Exploit";
+    return "t1190";
+  }
+  obj.mitre_tactic = "T1498.001";
+  obj.mitre_name = "Network DoS Flood";
+  obj.attack_category = "Impact";
+  obj.attack_type = "SYN Flood / DoS";
+  return "t1498";
+}
+
 // Load test records from CSV for the built-in simulator
 function loadTestRecords() {
   const possiblePaths = [
@@ -80,18 +155,31 @@ function loadTestRecords() {
         if (lines.length > 1) {
           const headers = lines[0].split(",").map(h => h.trim());
           const records = [];
-          for (let i = 1; i < Math.min(lines.length, 600); i++) {
+          for (let i = 1; i < lines.length; i++) {
             const vals = lines[i].split(",");
             if (vals.length === headers.length) {
               const obj = {};
               for (let j = 0; j < headers.length; j++) {
-                obj[headers[j]] = parseFloat(vals[j]) || 0;
+                const h = headers[j];
+                if (h === "attack_category" || h === "label") {
+                  obj[h] = vals[j].trim();
+                } else {
+                  obj[h] = parseFloat(vals[j]) || 0;
+                }
               }
               records.push(obj);
+
+              if (obj.binary_label === 0) {
+                attackPools.normal.push(obj);
+              } else {
+                const tacticKey = categorizeRecord(obj);
+                if (attackPools[tacticKey]) attackPools[tacticKey].push(obj);
+              }
             }
           }
           testRecords = records;
           console.log(`[+] Simulator ready: loaded ${testRecords.length} records from ${p}`);
+          console.log(`[+] MITRE pools: T1595=${attackPools.t1595.length}, T1190=${attackPools.t1190.length}, T1110=${attackPools.t1110.length}, T1068=${attackPools.t1068.length}, T1027=${attackPools.t1027.length}, T1498=${attackPools.t1498.length}, Normal=${attackPools.normal.length}`);
           return;
         }
       } catch (err) {
@@ -163,6 +251,11 @@ async function processDetectionRecord(payload, clientUser = "System Engine") {
 
   // Active Defense check: if IP is blocked in database, drop immediately at gateway!
   if (source_ip && blockedIPs.has(source_ip)) {
+    const tacticName = payload.mitre_name || "Active Defense Drop";
+    const tacticTid = payload.mitre_tactic || "T1498.001";
+    const atkCat = payload.attack_category || "Impact";
+    const atkType = payload.attack_type || payload.label || "Blocked Threat Vector";
+
     const record = {
       id: Date.now() + Math.floor(Math.random() * 1000),
       timestamp: new Date().toISOString(),
@@ -170,7 +263,11 @@ async function processDetectionRecord(payload, clientUser = "System Engine") {
       confidence: 1.0,
       source_ip,
       location: location || (IP_LOCATIONS[source_ip] ? `${IP_LOCATIONS[source_ip].city}, ${IP_LOCATIONS[source_ip].country}` : "Threat Origin"),
-      report: `ACTIVE DEFENSE INCIDENT REPORT\n${"-".repeat(50)}\nSTATUS: IMMEDIATE FIREWALL DROP\nSOURCE IP: ${source_ip} (${location || "Threat Origin"})\n\nThis source IP was identified as malicious and added to the kernel firewall blocklist. The incoming connection packet was rejected at the gateway in <10ms without consuming ML inference resources.`
+      attack_category: atkCat,
+      attack_type: atkType,
+      mitre_tactic: tacticTid,
+      mitre_name: tacticName,
+      report: `ACTIVE DEFENSE INCIDENT REPORT\n${"-".repeat(50)}\nSTATUS: IMMEDIATE FIREWALL DROP\nSOURCE IP: ${source_ip} (${location || "Threat Origin"})\nMITRE ATT&CK TACTIC: ${tacticName} [${tacticTid}]\nATTACK VECTOR: ${atkType}\n\nThis source IP was identified as malicious and added to the kernel firewall blocklist. The incoming connection packet was rejected at the gateway in <10ms without consuming ML inference resources.`
     };
     db.insertAlert(record);
     io.emit("threat:new", record);
@@ -186,12 +283,19 @@ async function processDetectionRecord(payload, clientUser = "System Engine") {
   } catch (err) {
     // Fallback heuristic if ML service temporarily offline
     const isAtk = payload.binary_label === 1;
+    const fallbackTactic = payload.mitre_name || (isAtk ? "Network DoS Flood" : "Normal Traffic");
     result = {
       prediction: isAtk ? "Attack" : "Normal",
       confidence: 0.94,
-      report: `HEURISTIC CLASSIFICATION\n${"-".repeat(50)}\nResult: ${isAtk ? "Attack" : "Normal"} (ML fallback active)`
+      attack_category: payload.attack_category || (isAtk ? "Impact" : "Normal"),
+      report: `HEURISTIC CLASSIFICATION\n${"-".repeat(50)}\nResult: ${isAtk ? "Attack" : "Normal"} (${fallbackTactic})`
     };
   }
+
+  const cat = payload.attack_category || result.attack_category || (result.prediction === "Attack" ? "Impact" : "Normal");
+  const lbl = payload.attack_type || payload.label || result.attack_type || (result.prediction === "Attack" ? `${cat} Vector` : "Normal Traffic");
+  const mitreTid = payload.mitre_tactic || (result.prediction === "Attack" ? "T1498.001" : null);
+  const mitreName = payload.mitre_name || (result.prediction === "Attack" ? "Network DoS Flood" : null);
 
   const record = {
     id: Date.now() + Math.floor(Math.random() * 1000),
@@ -200,6 +304,10 @@ async function processDetectionRecord(payload, clientUser = "System Engine") {
     confidence: result.confidence,
     source_ip: source_ip || null,
     location: location || null,
+    attack_category: cat,
+    attack_type: lbl,
+    mitre_tactic: mitreTid,
+    mitre_name: mitreName,
     top_reasons: result.top_reasons || null,
     report: result.report || null
   };
@@ -429,10 +537,10 @@ app.post("/api/lockdown", optionalToken, (req, res) => {
   const operator = req.user?.username || "SOC Commander";
   db.addAuditLog(operator, isEmergencyLockdown ? "EMERGENCY_LOCKDOWN_ARMED" : "EMERGENCY_LOCKDOWN_DISARMED");
 
-  io.emit("system:lockdown", { isEmergencyLockdown });
+  io.emit("system:lockdown", { active: isEmergencyLockdown, isEmergencyLockdown });
   io.emit("system:stats", getAggregatedStats());
 
-  res.json({ isEmergencyLockdown });
+  res.json({ isEmergencyLockdown, active: isEmergencyLockdown });
 });
 
 app.delete("/api/alerts", optionalToken, (req, res) => {
@@ -446,9 +554,9 @@ app.post("/api/reset-demo", optionalToken, (req, res) => {
   db.clearAllAlerts();
   db.clearBlockedIPs();
   blockedIPs.clear();
-  isEmergencyLockdown = false;
-  simStats = { totalSent: 0, attacksDetected: 0, autoBlocked: 0, normalCount: 0 };
-  db.addAuditLog(req.user?.username || "Admin", "DEMO_RESET", "Full system state reset");
+  try {
+    fs.writeFileSync(path.join(__dirname, "blocked.json"), JSON.stringify([], null, 2));
+  } catch(e) {}
 
   io.emit("firewall:update", { blockedIPs: [] });
   io.emit("system:stats", getAggregatedStats());
@@ -457,23 +565,83 @@ app.post("/api/reset-demo", optionalToken, (req, res) => {
   res.json({ message: "Full demo state reset: SQLite cleared, blocklist emptied." });
 });
 
+// --- AEGIS AI Security Copilot Chat & Action Execution Endpoint ---
+app.post("/api/copilot/chat", optionalToken, async (req, res) => {
+  try {
+    const { message } = req.body;
+    const response = await copilot.processCopilotMessage({
+      message,
+      user: req.user,
+      db,
+      blockedIPs,
+      getStats: getAggregatedStats,
+      io,
+      isLockdownRef: () => isEmergencyLockdown,
+      setLockdown: (val) => {
+        isEmergencyLockdown = !!val;
+        io.emit("system:lockdown", { active: isEmergencyLockdown, isEmergencyLockdown });
+        io.emit("system:stats", getAggregatedStats());
+      }
+    });
+    res.json(response);
+  } catch (err) {
+    console.error("Copilot Error:", err);
+    res.status(500).json({
+      reply: "Copilot reasoning engine encountered an internal condition. Tactical security posture is intact.",
+      suggestions: ["Summarize recent incidents", "Show active blocklist"]
+    });
+  }
+});
+
+app.get("/api/copilot/status", async (req, res) => {
+  try {
+    const status = await copilot.checkLocalLLMStatus();
+    res.json({
+      localLLM: status,
+      geminiActive: !!process.env.GEMINI_API_KEY
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/copilot/config", optionalToken, (req, res) => {
+  const { host, model, localUrl } = req.body || {};
+  const updated = copilot.updateCopilotConfig({ host, model, localUrl });
+  res.json({ message: "Copilot configuration updated", config: updated });
+});
+
+let tacticCycleIndex = 0;
+const tacticSequence = ["t1595", "t1190", "t1110", "t1068", "t1027", "t1498"];
+
 // --- Built-in Simulator Controls ---
 async function runSimulatorTick(forcedIP = null, forceAttack = null) {
   if (testRecords.length === 0) return null;
-  let pool = testRecords;
+
+  let isAtk;
   if (forceAttack === true) {
-    const attacks = testRecords.filter(r => r.binary_label === 1);
-    if (attacks.length > 0) pool = attacks;
+    isAtk = true;
   } else if (forceAttack === false) {
-    const normals = testRecords.filter(r => r.binary_label === 0);
-    if (normals.length > 0) pool = normals;
+    isAtk = false;
   } else {
-    const isAtk = Math.random() < 0.65;
-    const subset = testRecords.filter(r => isAtk ? r.binary_label === 1 : r.binary_label === 0);
-    if (subset.length > 0) pool = subset;
+    isAtk = Math.random() < 0.70;
   }
 
-  const row = pool[Math.floor(Math.random() * pool.length)];
+  let row;
+  if (!isAtk) {
+    const normals = attackPools.normal.length > 0 ? attackPools.normal : testRecords.filter(r => r.binary_label === 0);
+    row = normals[Math.floor(Math.random() * normals.length)];
+  } else {
+    // Cycle through all 6 MITRE tactics in turn so ALL cards are continuously populated
+    const chosenTactic = tacticSequence[tacticCycleIndex % tacticSequence.length];
+    tacticCycleIndex++;
+    const pool = (attackPools[chosenTactic] && attackPools[chosenTactic].length > 0)
+      ? attackPools[chosenTactic]
+      : testRecords.filter(r => r.binary_label === 1);
+    row = pool[Math.floor(Math.random() * pool.length)];
+  }
+  if (!row) row = testRecords[Math.floor(Math.random() * testRecords.length)];
+
   let ip = forcedIP;
   if (!ip) {
     if (!autoDefenseEnabled) {

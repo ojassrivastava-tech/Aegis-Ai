@@ -81,21 +81,29 @@ class TrafficRecord(BaseModel):
     dst_host_srv_serror_rate: float = 0
     dst_host_rerror_rate: float = 0
     dst_host_srv_rerror_rate: float = 0
+    attack_category: str = ""
+    attack_type: str = ""
+    mitre_name: str = ""
+    mitre_tactic: str = ""
 
     class Config:
         extra = "ignore"
 
 
 def get_shap_explanation(sample_df):
-    """Returns top 5 (feature, impact, value) tuples explaining the prediction."""
+    """
+    Computes SHAP values for a single prediction and returns the top 5
+    features that pushed the prediction toward "Attack", sorted by impact.
+    """
     shap_values = explainer.shap_values(sample_df)
 
     if isinstance(shap_values, list):
-        values_for_attack_class = shap_values[1][0]
+        # Multi-output / older SHAP format: index 1 is usually the "Attack" class
+        values_for_attack_class = shap_values[1] if len(shap_values) > 1 else shap_values[0]
     else:
-        shap_values = np.array(shap_values)
-        if shap_values.ndim == 3:
-            values_for_attack_class = shap_values[0, :, 1]
+        # Newer SHAP format: 3D array (samples, features, classes)
+        if len(shap_values.shape) == 3:
+            values_for_attack_class = shap_values[:, :, 1]
         else:
             values_for_attack_class = shap_values[0]
 
@@ -112,7 +120,8 @@ def root():
 
 @app.post("/predict")
 def predict(record: TrafficRecord):
-    sample_df = pd.DataFrame([record.dict()])[feature_columns]
+    record_dict = record.model_dump() if hasattr(record, "model_dump") else record.dict()
+    sample_df = pd.DataFrame([record_dict])[feature_columns]
 
     prediction = model.predict(sample_df)[0]
     probability = model.predict_proba(sample_df)[0]
@@ -129,9 +138,26 @@ def predict(record: TrafficRecord):
             {"feature": f, "impact": round(float(i), 4), "value": float(v)}
             for f, i, v in feature_impact
         ]
-        # We don't know the *specific* attack category here (that needs the
-        # multi-class model), so we label it generically for the live API.
-        report = build_report(feature_impact, "Attack")
+        
+        # Determine specific attack category and MITRE mapping
+        category = record.mitre_name or record.attack_category
+        if not category or category in ["Attack", "0", "Unknown"]:
+            top_f = [f[0] for f in feature_impact]
+            if record.wrong_fragment > 0 or "wrong_fragment" in top_f:
+                category = "Fragment Evasion (MITRE T1027)"
+            elif record.root_shell > 0 or record.num_root > 0 or "root_shell" in top_f:
+                category = "User-to-Root Exploitation (MITRE T1068)"
+            elif record.num_failed_logins > 0 or record.is_guest_login > 0 or "num_failed_logins" in top_f:
+                category = "Brute Force Password Guessing (MITRE T1110)"
+            elif record.dst_host_diff_srv_rate > 0.25 or "dst_host_diff_srv_rate" in top_f:
+                category = "Port Scanning / Probe (MITRE T1595)"
+            elif record.serror_rate > 0.4 or record.count > 60:
+                category = "Network DoS Flood (MITRE T1498)"
+            else:
+                category = "Exploit Public-Facing App (MITRE T1190)"
+
+        result["attack_category"] = category
+        report = build_report(feature_impact, category)
         result["report"] = report
 
     return result
