@@ -1,0 +1,4 @@
+# Ensure shell scripts always have Linux LF line endings
+*.sh text eol=lf
+Dockerfile text eol=lf
+render.yaml text eol=lf
