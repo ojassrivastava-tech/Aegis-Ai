@@ -2190,7 +2190,7 @@
 <main>
 <div class="scene" id="scene">
 
-  <!-- ================= COLLEGE DEMO: LIVE ATTACK & ACTIVE DEFENSE CONTROLLER ================= -->
+  <!-- ================= DEMO: LIVE ATTACK & ACTIVE DEFENSE CONTROLLER ================= -->
   <div class="glass live-sim-bar">
     <div class="sim-left-cluster">
       <div class="sim-status-pill" id="simStatusPill">
@@ -4481,7 +4481,7 @@ function exportHistoryCSV() {
 function initFullStack() {
   initSocketIO();
   if (!authToken || !currentUser) {
-    // Auto-authenticate as Admin on first visit for zero-friction College Viva Demo
+    // Demo mode: auto-authenticate as the seeded admin account on first visit
     quickSwitchRole('admin', 'admin123');
   } else {
     updateAuthUI();

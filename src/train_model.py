@@ -4,8 +4,7 @@ Step 2: Train a Random Forest model to detect attacks.
 What this does:
 1. Loads the processed train/test CSVs from Step 1
 2. Trains a RandomForestClassifier to predict binary_label (Normal vs Attack)
-3. Evaluates it: accuracy, precision, recall, f1-score (these numbers go in your
-   report/presentation to show how well the model performs)
+3. Evaluates it: accuracy, precision, recall, f1-score on the test set
 4. Saves the trained model so we can reuse it later (for explaining predictions,
    building the API, etc.) without retraining every time
 """
