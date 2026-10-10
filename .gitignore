@@ -25,5 +25,14 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Local SQLite databases (server will auto-generate if missing)
-# server/*.sqlite
+# Runtime data (the gateway recreates and reseeds these on startup)
+server/*.sqlite
+server/*.sqlite-shm
+server/*.sqlite-wal
+server/alerts.json
+server/blocked.json
+
+# Generated at runtime by the ML service
+models/last_attack_category.pkl
+models/last_explanation.pkl
+models/latest_incident_report.txt

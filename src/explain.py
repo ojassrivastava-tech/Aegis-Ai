@@ -1,8 +1,8 @@
 """
 Step 3: Explain WHY a specific network connection was flagged as an attack.
 
-This is the part that makes your project different from a generic tutorial NIDS:
-most student projects just say "Attack Detected". This one says WHICH features
+This is the part that sets this project apart from a basic NIDS: instead of just
+saying "Attack Detected", it says WHICH features
 made the model think so, using SHAP (SHapley Additive exPlanations) - an
 industry-standard technique for explaining ML predictions.
 """

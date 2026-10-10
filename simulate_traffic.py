@@ -1,6 +1,6 @@
 """
 Simulates live network traffic hitting AEGIS AI, by replaying rows from the
-test dataset to the Node.js API. Designed for LIVE COLLEGE PRESENTATIONS & VIVA.
+test dataset to the Node.js API, for live demos.
 
 Usage:
     python simulate_traffic.py --continuous          # Continuous live attacks & normal stream
@@ -71,7 +71,7 @@ def load_dataset():
 
 
 def main():
-    parser = argparse.ArgumentParser(description="AEGIS AI Live Attack Simulator for College Demo")
+    parser = argparse.ArgumentParser(description="AEGIS AI Live Attack Simulator")
     parser.add_argument("--count", type=int, default=40, help="Number of connections to simulate (if not continuous)")
     parser.add_argument("--delay", type=float, default=1.0, help="Seconds between each connection (default: 1.0s)")
     parser.add_argument("--continuous", action="store_true", help="Run continuously in infinite loop until stopped (Ctrl+C)")
@@ -107,7 +107,7 @@ def main():
                 row = attack_df.sample(n=1).iloc[0]
                 chosen_ip = DEMO_ATTACK_IP
             else:
-                # 60% attack, 40% normal for exciting college demo
+                # 60% attack, 40% normal for a mixed live feed
                 if args.attacks_only or random.random() < 0.60:
                     row = attack_df.sample(n=1).iloc[0]
                 else:
