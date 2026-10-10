@@ -1,168 +1,197 @@
-# AEGIS AI — Threat Intelligence & Active Defense
+# AEGIS AI: Explainable Network Intrusion Detection and SOC Platform
 
-An explainable, full-stack Network Intrusion Detection System that detects
-attacks in real time using Machine Learning, explains *why* each detection
-was flagged (SHAP), generates plain-English incident reports, and can
-actively block repeat offenders — all shown on a live 3D dashboard.
+AEGIS AI is a full-stack security operations (SOC) platform built around a machine
+learning intrusion detector. It classifies network connections as **normal** or
+**attack** with a Random Forest model, explains each detection with **SHAP**, maps
+attacks to **MITRE ATT&CK** techniques, and can **block attackers automatically** at the
+gateway. Everything streams to a live dashboard over WebSockets, and a built-in
+**security copilot** lets analysts query and act on incidents in plain language.
+
+> **Demo data:** traffic is simulated by replaying rows from the NSL-KDD dataset, and
+> the source IPs and map locations are fictional. The project does not capture real
+> network packets.
+
+## Features
+
+- **Attack detection:** Random Forest classifier (100 trees, max depth 15) trained on
+  the 41 NSL-KDD features. Output is binary: Normal or Attack. The training script
+  compares a Random Forest and a Decision Tree candidate.
+- **Explainability:** SHAP `TreeExplainer` returns the top 5 features behind each
+  detection, and a plain-English incident report is generated from them (template based,
+  no external API needed).
+- **MITRE ATT&CK mapping:** detected attacks are tagged with a technique (for example
+  T1498 DoS flood, T1595 port scan, T1110 brute force, T1068 privilege escalation).
+  This mapping is rule based, using the dataset's attack labels and the key features.
+  It is not predicted by the model.
+- **Active defense:** block or unblock source IPs from the dashboard. Blocked IPs are
+  dropped at the gateway before the ML model runs. Optional **auto-defense** blocks
+  detected attackers automatically, and an **emergency lockdown** mode drops all traffic.
+- **Real-time dashboard:** Socket.IO live alert feed, statistics and charts (Chart.js),
+  a Leaflet threat map with simulated source locations, a Three.js visual, and a
+  history view with search, filters and CSV export.
+- **Authentication and audit trail:** JWT login with bcrypt-hashed passwords and
+  admin / analyst / viewer account roles. Sensitive actions are written to an audit log.
+- **Persistence:** SQLite (Node's built-in `node:sqlite`) stores users, alerts, the
+  blocklist and audit logs.
+- **Security copilot:** a chat assistant in the dashboard with a built-in cybersecurity
+  knowledge base and commands such as blocking an IP, unblocking, lockdown and incident
+  briefings. It can optionally use a local LLM through Ollama or Google Gemini.
+- **Traffic simulators:** a simulator built into the gateway, plus a command-line
+  simulator (`simulate_traffic.py`) with a targeted attack demo.
+- **Tests:** unit tests for the ML service and model selection (Python), and for the
+  database layer and copilot (Node).
 
 ## Architecture
 
 ```
-[simulate_traffic.py]  →  [Node.js API Gateway :4000]  →  [Python ML Service :8000]
-    (simulates live          (REST API, stores alert          (model + SHAP +
-     network traffic)         history, serves dashboard)       report generation)
-                                      ↓
-                              [Dashboard :4000]
-                          (live charts + alert feed)
+[Simulator / traffic source]
+          |
+          v
+[Node.js gateway :4000]  --REST-->  [FastAPI ML service :8000]
+  - REST API + Socket.IO              - Random Forest prediction
+  - JWT auth, audit log               - SHAP explanation
+  - SQLite storage                    - incident report + MITRE category
+  - IP blocklist, auto-defense
+  - security copilot
+          |
+          v
+[Dashboard served by the gateway]
 ```
+
+## Tech Stack
+
+| Area | Technologies |
+|------|--------------|
+| Machine learning | Python, Scikit-learn, SHAP, Pandas, NumPy |
+| ML service | FastAPI, Uvicorn |
+| Gateway and backend | Node.js, Express, Socket.IO, JWT, bcrypt, SQLite (`node:sqlite`), Axios |
+| Dashboard | HTML, CSS, JavaScript, Chart.js, Leaflet, Three.js |
+| Deployment | Docker, Docker Compose, Render (`render.yaml`) |
 
 ## Project Structure
+
 ```
-nids-project/
-├── data/                   # Dataset goes here
-├── models/                 # Trained model gets saved here
-├── src/
-│   ├── preprocess.py       # Step 1: Clean & prepare data
-│   ├── train_model.py      # Step 2: Train the ML model
-│   ├── explain.py          # Step 3: Explain a prediction (SHAP) — CLI demo
-│   └── generate_report.py  # Step 4: Human-readable incident report
-├── api/
-│   ├── ml_service.py       # FastAPI service — serves the model as an API
-│   ├── requirements.txt
-│   └── Dockerfile
+.
+├── api/                    # FastAPI ML service (prediction, SHAP, report)
 ├── server/
-│   ├── server.js           # Node.js API Gateway — the piece your internship skills built
-│   ├── package.json
-│   └── Dockerfile
-├── dashboard/
-│   └── index.html          # Live monitoring dashboard
-├── simulate_traffic.py     # Replays test data as "live" traffic, for demos
-├── docker-compose.yml      # Runs everything together
-└── README.md
+│   ├── server.js           # Gateway: REST API, WebSockets, auth, defense logic
+│   ├── db.js               # SQLite layer (users, alerts, blocklist, audit logs)
+│   └── copilot.js          # Security copilot engine
+├── dashboard/              # Dashboard (index.html) and bundled front-end libraries
+├── src/
+│   ├── preprocess.py       # Clean NSL-KDD data, encode features, create labels
+│   ├── train_model.py      # Train and evaluate the model
+│   ├── explain.py          # CLI demo of a SHAP explanation
+│   └── generate_report.py  # Turn SHAP output into a plain-English report
+├── models/                 # Trained model and feature list
+├── data/                   # Processed NSL-KDD test set used by the simulators
+├── tests/                  # Python and Node tests
+├── simulate_traffic.py     # Command-line traffic simulator
+├── docker-compose.yml      # ML service + gateway
+├── Dockerfile              # Single-container image (used by render.yaml)
+└── start.sh                # Starts the ML service and the gateway together
 ```
 
-## Part A: Build & Train the Model (do this first)
+## Getting Started
 
-1. Download **NSL-KDD**: https://www.kaggle.com/datasets/hassan06/nslkdd
-   Place `KDDTrain+.txt` and `KDDTest+.txt` into `data/`
+The trained model (`models/nids_model.pkl`) and the processed test data are included,
+so the project runs without downloading anything.
 
-2. Install core dependencies and train:
-```bash
-pip install -r requirements.txt
-python src/preprocess.py
-python src/train_model.py
-python src/explain.py           # optional CLI demo of SHAP explanation
-python src/generate_report.py   # optional CLI demo of report generation
-```
-
-This creates `models/nids_model.pkl`, which the API service uses.
-
-## Part B: Run the Full System
-
-### Option 1 — Docker (recommended for your demo/submission)
-
-Once you have `models/nids_model.pkl` (from Part A):
+### Option 1: Docker Compose
 
 ```bash
 docker compose up --build
 ```
 
-Then open **http://localhost:4000** in your browser — that's your live dashboard.
+Open **http://localhost:4000**.
 
-In a **separate terminal** (not inside Docker), run the simulator to generate live traffic:
+### Option 2: Run locally
+
+Requires Python 3.11+ and Node.js 22.5+ (24 recommended, because the gateway uses
+`node:sqlite`).
+
 ```bash
-pip install pandas requests
-python simulate_traffic.py --count 60 --delay 0.8
-```
-
-Watch the dashboard update in real time as attacks get detected and explained.
-
-### Option 2 — Run without Docker (for development/debugging)
-
-You need **3 terminals** open at once:
-
-**Terminal 1 — ML Service (Python):**
-```bash
+# Terminal 1: ML service
 pip install -r api/requirements.txt
-uvicorn api.ml_service:app --reload --port 8000
-```
+uvicorn api.ml_service:app --port 8000
 
-**Terminal 2 — Backend (Node.js):**
-```bash
+# Terminal 2: gateway and dashboard
 cd server
 npm install
 npm start
 ```
 
-**Terminal 3 — Simulator:**
+Open **http://localhost:4000**.
+
+### Generate traffic
+
+Use the simulator controls in the dashboard, or run the command-line simulator in
+another terminal:
+
 ```bash
-python simulate_traffic.py --count 60 --delay 0.8
+pip install pandas requests
+python simulate_traffic.py --continuous
+python simulate_traffic.py --demo-attack     # 8 attack connections from one fictional IP
 ```
 
-Then open **http://localhost:4000** for the dashboard.
+### Demo flow: attack, detect, block
 
-## For Your College Demo: Attack → Detect → Block
+1. Run `python simulate_traffic.py --demo-attack`. The connections appear as attacks in
+   the live feed.
+2. Open an alert to see the SHAP-based explanation and the MITRE technique.
+3. Block the source IP (or enable auto-defense).
+4. Run the demo again. Connections from that IP are now shown as **Blocked** and never
+   reach the ML model.
 
-This is the full live-demo script. It shows detection AND active defense —
-not just passive alerts.
+## Configuration
 
-**Step 1 — Warm up with general traffic (optional, builds up the dashboard):**
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `PORT` | Gateway port | `4000` |
+| `ML_SERVICE_URL` | URL of the FastAPI service | `http://localhost:8000` |
+| `JWT_SECRET` | Secret used to sign login tokens | built-in demo value |
+| `GEMINI_API_KEY` | Enables the Gemini-powered copilot | not set |
+| `OLLAMA_HOST` / `OLLAMA_MODEL` | Local LLM for the copilot | `http://localhost:11434` / `llama3.2` |
+
+## Retraining the model
+
+To retrain on the full NSL-KDD dataset, download it from
+[Kaggle](https://www.kaggle.com/datasets/hassan06/nslkdd), place `KDDTrain+.txt` and
+`KDDTest+.txt` in `data/`, then run:
+
 ```bash
-python simulate_traffic.py --count 30 --delay 0.8
+pip install -r requirements.txt
+python src/preprocess.py
+python src/train_model.py     # prints accuracy, classification report, confusion matrix
 ```
 
-**Step 2 — Send a targeted attack from one IP:**
+## Tests
+
 ```bash
-python simulate_traffic.py --demo-attack
+python -m unittest discover -s tests -t .
+node tests/test_server_copilot.js
 ```
-This sends 8 attack connections all from the same fake IP (`203.0.113.7`).
-Watch the dashboard flag them as **ATTACK** in real time.
 
-**Step 3 — Explain it:**
-Click any "ATTACK" row in the Live Alert Feed. The Incident Report panel opens,
-showing the SHAP-based explanation (which features triggered the detection)
-in plain English.
+## Demo Mode and Security Notes
 
-**Step 4 — Block the source:**
-At the bottom of the Incident Report, click **"BLOCK SOURCE"**. The dashboard
-confirms the IP has been added to the firewall blocklist, and the "Blocked
-Sources" counter increases.
+This project is a demonstration platform and is not hardened for production use.
 
-**Step 5 — Replay the same attack (the payoff moment):**
-```bash
-python simulate_traffic.py --demo-attack
-```
-This time, the dashboard instantly shows **BLOCKED** for every connection —
-the system rejects them before they even reach the ML model, because the
-source is already known-malicious.
+- On first visit the dashboard signs in automatically as the seeded demo `admin`
+  account. Demo accounts (`admin`, `analyst`, `auditor`) are created on the first run.
+- Change the seeded passwords and set a strong `JWT_SECRET` before exposing it anywhere.
+- Account roles are stored in the token, but not every action is restricted by role yet.
 
-**What to say out loud:** *"The first time, our AI model analyzed the traffic
-and correctly flagged it as an attack, explaining exactly why. Once I block
-that source, the system remembers it — so if the same attacker tries again,
-AEGIS AI rejects them instantly at the gateway, without even needing to run
-the model again. That's the difference between just detecting threats and
-actively defending against them."*
+## Limitations
 
-## What Each Attack Type Means
+- Binary classification only (Normal vs Attack). Attack type and MITRE technique come
+  from rules, not from the model.
+- Trained and evaluated on NSL-KDD, a benchmark dataset. Detecting real traffic would
+  need feature extraction from live packets, which is not implemented.
+- Traffic, source IPs and locations are simulated.
 
-| Category | What it is | Example |
-|----------|-----------|---------|
-| DoS | Denial of Service — flooding a target to make it unavailable | SYN flood |
-| Probe | Scanning a network to find vulnerabilities | Port scanning |
-| R2L | Remote-to-Local — unauthorized access from a remote machine | Password guessing |
-| U2R | User-to-Root — a local user trying to gain admin/root access | Buffer overflow |
+## Roadmap
 
-## Tech Stack Summary (for your CV/report)
-
-- **Machine Learning:** Python, Scikit-learn (Random Forest), SHAP (explainability)
-- **Backend API:** Python (FastAPI) for the ML microservice, Node.js (Express) as the API Gateway
-- **Frontend:** HTML/CSS/JavaScript, Chart.js for live visualizations
-- **Deployment:** Docker & Docker Compose (multi-container orchestration)
-- **Architecture pattern:** Microservices (separate ML service + API gateway, communicating over REST)
-
-## Possible Extensions (if you want to go further)
-- Add a multi-class model (predict DoS/Probe/R2L/U2R specifically, not just Attack/Normal)
-- Add authentication to the dashboard
-- Persist alerts in a real database (MongoDB/PostgreSQL) instead of a JSON file
-- Add email/Slack notifications when an attack is detected
-- Deploy to a free-tier cloud service (Render/Railway) so it's live on the internet
+- Multi-class model that predicts the attack type directly.
+- Role-based access control enforced on every sensitive endpoint.
+- Live packet capture and feature extraction.
+- Proper model validation (hold-out set for model selection) and metric reporting.
