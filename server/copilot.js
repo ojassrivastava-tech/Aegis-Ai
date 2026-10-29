@@ -565,7 +565,7 @@ async function processCopilotMessage({ message, user, db, blockedIPs, getStats, 
         `• **Source Host:** \`${ip}\` (${loc})\n` +
         `• **Classification:** **${lastAttack.prediction.toUpperCase()}** (${conf}% confidence)\n` +
         `• **Detection Model:** Random Forest with SHAP Attribution\n\n` +
-        `**Top Contributing Anomaly Factors (Shapley Values):**\n` +
+        `**Typical indicators for this kind of traffic (general guidance, not computed for this incident; open the alert's incident report for the model's own SHAP factors):**\n` +
         `1. **Flow Ingress Velocity (\`count\`):** Abnormally high packet frequency over a brief temporal window.\n` +
         `2. **TCP Header Flags (\`flag\`):** Asymmetric SYN / RST flags characteristic of automated reconnaissance.\n` +
         `3. **Payload Asymmetry (\`src_bytes\` vs \`dst_bytes\`):** Extreme request volume with zero reply payload returned.\n\n` +
