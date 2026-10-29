@@ -3,5 +3,3 @@ numpy
 scikit-learn
 shap
 joblib
-matplotlib
-seaborn

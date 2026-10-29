@@ -136,11 +136,14 @@ python simulate_traffic.py --demo-attack     # 8 attack connections from one fic
 
 ### Demo flow: attack, detect, block
 
-1. Run `python simulate_traffic.py --demo-attack`. The connections appear as attacks in
-   the live feed.
+Auto-Defense is **on** by default, so the first detected attack from an IP blocks that IP
+automatically and later packets from it show as Blocked. To walk through the manual
+flow, switch Auto-Defense off in the dashboard first.
+
+1. Run `python simulate_traffic.py --demo-attack` (8 connections from one fictional IP).
 2. Open an alert to see the SHAP-based explanation and the MITRE technique.
-3. Block the source IP (or enable auto-defense).
-4. Run the demo again. Connections from that IP are now shown as **Blocked** and never
+3. Block the source IP from the alert panel (with Auto-Defense on this has already happened).
+4. Run the demo again. Connections from that IP are shown as **Blocked** and never
    reach the ML model.
 
 ## Configuration
@@ -168,7 +171,7 @@ python src/train_model.py     # prints accuracy, classification report, confusio
 ## Tests
 
 ```bash
-python -m unittest discover -s tests -t .
+python -m unittest discover -s tests
 node tests/test_server_copilot.js
 ```
 

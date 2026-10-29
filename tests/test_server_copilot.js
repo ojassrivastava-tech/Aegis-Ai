@@ -12,7 +12,8 @@ async function runTests() {
   assert(typeof initialStats.attack === "number", "Attack packets must be a number");
 
   const testAlert = {
-    id: 99999901,
+    // Real alert ids are timestamp based, so use a larger id to stay in the newest rows
+    id: Date.now() + 1000000,
     timestamp: new Date().toISOString(),
     prediction: "Attack",
     confidence: 0.98,

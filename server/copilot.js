@@ -692,14 +692,6 @@ async function processCopilotMessage({ message, user, db, blockedIPs, getStats, 
     };
   }
 
-  // I. VIVA DEMO / PRESENTATION TIPS
-  if (q.includes("viva") || q.includes("how to demo") || q.includes("presentation") || q.includes("how to present") || q.includes("examiner") || q.includes("project demo")) {
-    return {
-      reply: `🎓 **5-STEP VIVA / PRESENTATION DEMONSTRATION WORKFLOW:**\n\n1. **Show the 3D Cyber Map:** Explain that incoming connections from global threat actors (Moscow, Beijing, Lagos) are mapped in real-time to the New Delhi protected perimeter.\n2. **Start the Simulator:** Click **"START STREAM"** or **"BURST ATTACK"** to generate live traffic. Highlight how the Leaflet laser arcs light up and the Socket.IO WS badge says **LIVE**.\n3. **Click an Attack Row in the Feed:** Point out the **Wireshark Deep Packet Dissector**, the **Realistic Hex Dump**, and the **SHAP Feature Forensics** showing *why* the model made its prediction.\n4. **Demonstrate AI Copilot:** Open Copilot and type *"Block Moscow"* or *"Summarize recent incidents"* to showcase natural language AI triage.\n5. **Show Defense Modes & Audit:** Toggle **Auto-Defense**, engage **DEFCON-1 Lockdown**, and switch to the **Auditor** role to show persistent SQLite logs and CSV dossier export!`,
-      suggestions: ["What is AEGIS?", "What ML model is used?", "Summarize recent incidents"]
-    };
-  }
-
   // I. REAL-WORLD PRODUCTION DEPLOYMENT
   if (q.includes("real world") || q.includes("deploy") || q.includes("production") || q.includes("live network")) {
     return {
